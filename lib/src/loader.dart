@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:js_interop';
 
 import 'abi.dart';
+import 'wasi.dart';
 import 'wasm_interop.dart';
 import 'wit_parser.dart';
 
@@ -55,6 +56,15 @@ Future<JSObject> _instantiate(String url, JSObject imports) async {
   return source.instance.exports;
 }
 
+/// SPEC §10.1 — invoke a reactor module's `_initialize` export once after
+/// instantiation, before any other export is used. No-op if not exported.
+void _callInitialize(JSObject rawExports) {
+  final initJs = getExport(rawExports, '_initialize');
+  if (initJs != null && initJs.isA<JSFunction>()) {
+    (initJs as JSFunction).callAsFunction();
+  }
+}
+
 /// Instantiates the `.wasm` at [wasmPath], returning a typed [ModuleExports]
 /// handle.
 ///
@@ -66,8 +76,12 @@ Future<JSObject> _instantiate(String url, JSObject imports) async {
 /// [hostCallbacks] supplies host import functions keyed by camelCase WIT name
 /// (e.g. `envMul`).
 ///
-/// TODO (SPEC §10): `_initialize` and a WASI-P1 shim are optional and not yet
-/// implemented; the reference fixtures need neither.
+/// SPEC §10 (producer model): a minimal WASI Preview 1 shim is always supplied
+/// so an I/O-using library module (e.g. a `modc` library that calls
+/// `console.log` → `fd_write`) instantiates on the web, which has no native
+/// WASI; unused import namespaces are ignored by `WebAssembly.instantiate`, so
+/// pure-compute modules are unaffected. A reactor module's `_initialize` export
+/// is invoked once after instantiation.
 Future<ModuleExports> wasmImport(
   String wasmPath, {
   Map<String, Function> hostCallbacks = const {},
@@ -86,8 +100,19 @@ Future<ModuleExports> wasmImport(
     // no WIT file available
   }
 
+  // SPEC §10.2 — always provide the minimal WASI-P1 shim.
+  final wasiMemRef = WasiMemRef();
+  final wasi = buildWasiShim(wasiMemRef);
+
   if (witSrc == null) {
-    final rawExports = await _instantiate(cleanPath, JSObject());
+    final imports = JSObject();
+    jsSet(imports, 'wasi_snapshot_preview1'.toJS, wasi);
+    final rawExports = await _instantiate(cleanPath, imports);
+    final memJs = getExport(rawExports, 'memory');
+    if (memJs != null) {
+      wasiMemRef.current = memJs as WasmMemory;
+    }
+    _callInitialize(rawExports); // SPEC §10.1
     if (requestedVersion != null) {
       _assertVersion(rawExports, requestedVersion, cleanPath);
     }
@@ -99,6 +124,7 @@ Future<ModuleExports> wasmImport(
   final importEnv = buildComponentImportEnv(parsedWit.imports, hostCallbacks);
 
   final imports = JSObject();
+  jsSet(imports, 'wasi_snapshot_preview1'.toJS, wasi);
   if (parsedWit.imports.isNotEmpty) {
     jsSet(imports, 'env'.toJS, importEnv.env);
   }
@@ -106,8 +132,11 @@ Future<ModuleExports> wasmImport(
   final rawExports = await _instantiate(cleanPath, imports);
   final memJs = getExport(rawExports, 'memory');
   if (memJs != null) {
-    importEnv.memRef.current = memJs as WasmMemory;
+    final mem = memJs as WasmMemory;
+    importEnv.memRef.current = mem; // for env string-param decoding
+    wasiMemRef.current = mem; // for the WASI shim
   }
+  _callInitialize(rawExports); // SPEC §10.1
   if (requestedVersion != null) {
     _assertVersion(rawExports, requestedVersion, cleanPath);
   }

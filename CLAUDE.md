@@ -23,25 +23,29 @@ the companion `.wit`, apply the Canonical ABI, and return a typed handle. Intend
 - Package manager / registry: **pub.dev**; package version lives in `pubspec.yaml` (`version:`).
 - OS: Windows 11 (development environment).
 
-## WASM runtime — OPEN decision
+## WASM runtime — DECIDED (web now, native later)
 
-Dart has no single canonical WASM host. Candidates (decide before implementing):
-- **Web:** `dart:js_interop` over the browser's native `WebAssembly` (best fit for Flutter web).
-- **Native (Dart VM):** `dart:ffi` bindings to a C wasm runtime (e.g. the wasmtime C API — which would
-  share marshalling concepts with `universalWasmLoader-c`), or a pure-Dart interpreter (`package:wasm`
-  is Wasmer-based and effectively deprecated).
+Dual-backend, resolved 2026-06-15: the current backend is **web** — `dart:js_interop` over the
+browser's native `WebAssembly` + `fetch` (best fit for Flutter web, no native build step). A **native**
+(Dart VM) backend via `dart:ffi` → wasmtime C API is planned later, selected via conditional imports.
+Because the web backend can't use a runtime built-in WASI, the SPEC §10.2 shim is **hand-rolled** in
+`lib/src/wasi.dart` (mirrors `-js`); the future native backend will get wasmtime's built-in WASI.
 
 ## Repository Structure
 
-Currently a fresh repo — `README.md`, `LICENSE`, `.gitignore`, this `CLAUDE.md`, and `cmem/`. No
-`pubspec.yaml`, `lib/`, or tests yet (matches the other not-yet-implemented ports).
+Implemented and PUBLISHED to pub.dev. `lib/universal_wasm_loader.dart` (barrel) + `lib/src/`
+(`loader.dart`, `abi.dart`, `wasi.dart`, `wasm_interop.dart`, `wit_parser.dart`),
+`test/loader_test.dart` (`@TestOn('browser')`) + `test/fixtures/`, `pubspec.yaml`, `cmem/`. See
+[`cmem/overview.md`](cmem/overview.md) for the authoritative file-by-file layout.
 
 ## Conformance
 
-Must implement the cross-language `SPEC.md`. The spec is at **v3.0.0 (2026-06-15)** — string returns
-use the **canonical callee-allocated** convention (export returns an i32 pointer to a `[ptr, len]`
-pair; host reads it then calls `cabi_post_<name>(retPtr)`). Build directly against 3.0.0; there is no
-legacy out-parameter code to migrate. Full detail in [`cmem/overview.md`](cmem/overview.md).
+Implements the cross-language `SPEC.md` at **v3.0.0 (2026-06-15)** — string returns use the
+**canonical callee-allocated** convention (export returns an i32 pointer to a `[ptr, len]` pair; host
+reads it then calls `cabi_post_<name>(retPtr)`). **SPEC §10 (producer model) is implemented
+(2026-07-05):** the loader always attaches a minimal WASI-P1 shim (`lib/src/wasi.dart`) and calls a
+reactor module's `_initialize` after instantiation, so I/O-using `modc` libraries load on the web.
+`dart test -p chrome` → 9/9 (incl. 2 §10 tests). Full detail in [`cmem/overview.md`](cmem/overview.md).
 
 ## Notes
 

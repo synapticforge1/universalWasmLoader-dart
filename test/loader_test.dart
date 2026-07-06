@@ -1,6 +1,9 @@
 @TestOn('browser')
 library;
 
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
 import 'package:test/test.dart';
 import 'package:universal_wasm_loader/universal_wasm_loader.dart';
 
@@ -10,6 +13,8 @@ const _math = 'fixtures/math_50.wasm';
 const _booleans = 'fixtures/booleans_50.wasm';
 const _strings = 'fixtures/strings_50.wasm';
 const _imports = 'fixtures/imports_50.wasm';
+const _initCheck = 'fixtures/init_check.wasm';
+const _wasiIo = 'fixtures/wasi_io_50.wasm';
 
 void main() {
   group('math_50 — numeric round-trip', () {
@@ -75,6 +80,25 @@ void main() {
         pool.run((mod) => mod.call('add', [20, 2]) as int),
       ]);
       expect(results, containsAll([11, 22]));
+    });
+  });
+
+  group('SPEC §10 — producer model (loader capabilities)', () {
+    test('§10.1 _initialize is called (no-WIT raw path)', () async {
+      // init_check.wasm has no companion .wit; its `_initialize` sets a global
+      // to 99 that `getValue` reads — 99 proves the loader invoked it. The raw
+      // (no-WIT) branch still attaches the shim and calls _initialize.
+      final m = await wasmImport(_initCheck);
+      final getValue = m.rawExports.getProperty('getValue'.toJS) as JSFunction;
+      final value = (getValue.callAsFunction() as JSNumber).toDartInt;
+      expect(value, 99);
+    });
+
+    test('§10.2 a WASI-using library module instantiates and runs', () async {
+      // wasi_io_50 is a modc library that calls console.log → imports fd_write;
+      // it only instantiates because the loader supplies the WASI-P1 shim.
+      final m = await wasmImport(_wasiIo);
+      expect(m.call('logAndDouble', [21]), 42);
     });
   });
 }

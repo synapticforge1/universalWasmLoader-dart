@@ -46,17 +46,28 @@ loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engi
   `Reflect.get/set`, memory views (`memoryBytes`, `readI32`).
 - `lib/src/abi.dart` — `buildComponentImportEnv` / `buildComponentExportProxy` + the `ModuleExports`
   handle (`call`/`function`/`has`/`names`/`rawExports`).
+- `lib/src/wasi.dart` — **SPEC §10.2** minimal WASI Preview 1 shim (`buildWasiShim` + `WasiMemRef`):
+  a hand-rolled `wasi_snapshot_preview1` import object built from Dart closures via `.toJS`
+  (`fd_write`→`console.log`/`console.error`, `proc_exit`, `random_get`, `clock_time_get`,
+  environ/args, `fd_close`/`fd_fdstat_get`/`fd_seek`). Web-safe i64 writes split into two i32 words
+  (`ByteData.setInt64` is unsupported on the web). Like `-js` (and unlike the native ports), the web
+  backend can't use a runtime built-in, so the shim is hand-rolled.
 - `lib/src/loader.dart` — `wasmImport`, `createSingleton`, `InstancePool`, version-suffix parsing,
-  version-global assertion.
+  version-global assertion. **SPEC §10:** always attaches the WASI shim to the imports (both the
+  no-WIT and WIT branches) and calls a reactor module's `_initialize` (`_callInitialize`) once after
+  instantiation.
 - `test/loader_test.dart` (`@TestOn('browser')`) + `test/fixtures/*.{wasm,wit}` (the four
-  `*_50` reference fixtures).
+  `*_50` reference fixtures + the §10 fixtures `init_check.wasm` and `wasi_io_50.{wasm,wit}`).
 
 ### Verification level — `dart analyze` clean + browser tests PASS
 
 Dart SDK 3.12.2 (bundled in the scoop Flutter 3.44.2 install). `dart analyze` → **No issues found**;
-`dart format .` clean. **`dart test -p chrome` ran in real Chrome and all 7 tests passed** (math,
+`dart format .` clean. **`dart test -p chrome` ran in real Chrome and all 9 tests passed** (math,
 booleans, strings incl. the Canonical string return, imports with host callbacks, `createSingleton`
-identity, `InstancePool.run`, 2 concurrent pooled runs).
+identity, `InstancePool.run`, 2 concurrent pooled runs, plus the two **SPEC §10** tests: §10.1
+`_initialize` on the no-WIT raw path via `init_check.wasm`, and §10.2 a WASI-using library
+`wasi_io_50.wasm` — `logAndDouble(21)==42` — instantiating only because the shim supplies
+`fd_write`). Added 2026-07-05.
 
 ### Key js_interop note (gotcha)
 
