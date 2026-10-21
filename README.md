@@ -1,7 +1,7 @@
 # universalWasmLoader-dart
 
 Universal WASM loader for Dart — the Dart port of the
-[Universal WASM Loader](https://github.com/jrmarcum/universalWasmLoader), implementing the
+[Universal WASM Loader](https://github.com/synapticforge1/universalWasmLoader-js), implementing the
 cross-language `SPEC.md` **v3.0.0**.
 
 Load a WebAssembly "DLL" the way the reference loader does: auto-detect the companion `.wit`, apply
@@ -101,7 +101,7 @@ scripts/release.sh
 Pushing a `v*` tag runs `.github/workflows/publish.yml`, which installs the Dart SDK and runs
 `dart pub publish` on pub.dev.
 
-> **`run:`-only workflow.** This org's GitHub Actions policy permits only `jrmarcum`-owned actions, so
+> **`run:`-only workflow.** The GitHub Actions policy permits only first-party (owner-owned) actions, so
 > the publish workflow uses **no `uses:` steps** — checkout is `git clone`, the SDK is installed via
 > the Dart apt repo, and publishing is the `dart pub` CLI. The official pub.dev OIDC automated-publishing
 > reusable workflow (`dart-lang/setup-dart/.github/workflows/publish.yml`) is a third-party action and

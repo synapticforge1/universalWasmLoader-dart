@@ -1,4 +1,9 @@
 > **⚠️ PORTABLE PROJECT MEMORY NOW LIVES IN `cmem/`** — start at [`cmem/INDEX.md`](cmem/INDEX.md).
+
+> **At session start, read `../../cmem/handoffs.md` for letters addressed to this repo.** The workspace
+> session (`../../cmem/INDEX.md`) reviews across the sibling repos and reports there; nothing is ever
+> written into this repo from outside. (owner directive, 2026-09-20)
+
 > When saving new project memory, write it into the matching `cmem/` topic file (and refresh its
 > pointer in `cmem/INDEX.md`). The **"update the project memory"** and **"look for code issues"**
 > triggers are defined in `cmem/INDEX.md` and are binding. This `CLAUDE.md` remains as the auto-loaded
@@ -49,5 +54,7 @@ reactor module's `_initialize` after instantiation, so I/O-using `modc` librarie
 
 ## Notes
 
+- GitHub home: **https://github.com/synapticforge1/universalWasmLoader-dart**. It was transferred from
+  `jrmarcum` to the `synapticforge1` org (recorded 2026-10-20; see `cmem/overview.md` → "Repository home").
 - Git safe.directory may need adding for this path when running git outside Claude Code:
-  `git config --global --add safe.directory D:/Programs/_ProgramExamples/Example_Programs/GithubProjects/universalWasmLoader/universalWasmLoader-dart`
+  `git config --global --add safe.directory D:/Programs/_ProgramExamples/Example_Programs/wasmExamples/universalWasmLoader/universalWasmLoader-dart`
