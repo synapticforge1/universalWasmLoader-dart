@@ -12,7 +12,7 @@ jobs:
       contents: write
 
     steps:
-      # NOTE: This org's Actions policy only permits actions owned by `jrmarcum`.
+      # NOTE: The Actions policy only permits first-party (owner-owned) actions.
       # Third-party `uses:` steps (actions/checkout, dart-lang/setup-dart, and the
       # official dart-lang/setup-dart/.github/workflows/publish.yml reusable OIDC
       # workflow) cause a `startup_failure` — the workflow never runs a single step.

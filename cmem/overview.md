@@ -4,6 +4,24 @@ The **Dart** port of the Universal WASM Loader (Stage 2 of the polyglot loader e
 `universalWasmLoader-js` is the reference, and `SPEC.md` is the cross-language contract). Intended to
 publish to **pub.dev**.
 
+## Repository home — `synapticforge1` organization (recorded 2026-10-20)
+
+The GitHub repo was **transferred from the `jrmarcum` user account to the owner-controlled
+`synapticforge1` organization**: canonical URL **https://github.com/synapticforge1/universalWasmLoader-dart**
+(GitHub API confirms `full_name` = `synapticforge1/universalWasmLoader-dart`, owner type
+`Organization`, default branch `main`). The old `jrmarcum/...` URL still works through GitHub's
+redirect, but that redirect stops working if a repo with the old name is ever created under
+`jrmarcum`. So every reference points at the new owner: `origin`, `pubspec.yaml` `repository:`,
+and README. The reference loader moved with it: `synapticforge1/universalWasmLoader-js` (the old
+`jrmarcum/universalWasmLoader` link resolves there).
+
+- **pub.dev is unaffected by the transfer.** Package ownership is a pub.dev/Google-account fact, not
+  a GitHub one. The `repository:` URL shown on pub.dev only changes with the next publish.
+- **Not re-verified after the transfer (needs org-admin access):** (1) that the `PUB_DEV_CREDENTIALS`
+  repo secret is still present, and (2) the `synapticforge1` org's Actions policy. The `run:`-only
+  workflow below has no `uses:` steps, so it keeps working whatever that policy allows. Check both
+  before the next release tag.
+
 ## Status — PUBLISHED to pub.dev, web-first (first publish 2026-06-24)
 
 **`universal_wasm_loader` 0.1.0 is live on https://pub.dev/packages/universal_wasm_loader**
@@ -78,26 +96,20 @@ params** (8 slots) so any arity 0..8 is accepted. Export calls use `Function.pro
 (bound via `@JS('Function.prototype.apply.call')`) to pass an arbitrary arg count, since
 `callAsFunction` is fixed at 4.
 
-## Intended API surface
+## API surface (implemented, published in 0.1.0)
 
-Mirror the reference loader in idiomatic Dart (final names TBD):
-- `wasmImport(path, {hostCallbacks})` → a future/`Future` resolving to a typed module handle; auto-detect
-  the companion `.wit`, apply the Canonical ABI, fall back to raw exports if no `.wit`. Support the
-  `@N` version-pin suffix (checked against the module's exported `version` global).
+Mirrors the reference loader in idiomatic Dart:
+- `wasmImport(path, {hostCallbacks})` → a `Future` resolving to a `ModuleExports` handle; auto-detects
+  the companion `.wit`, applies the Canonical ABI, falls back to raw exports if there is no `.wit`.
+  Supports the `@N` version-pin suffix (checked against the module's exported `version` global).
 - `createSingleton(path, {hostCallbacks})` — caches the load; same instance every call.
 - `InstancePool(path, {hostCallbacks, size})` — `acquire` / `release` / `run` over N instances.
 
-## WASM runtime — OPEN decision (decide before implementing)
+The runtime choice (formerly an open decision) is settled: see "Runtime decision — dual-backend" above.
+Native-backend note kept from that analysis: `package:wasm` (Wasmer-based) is effectively deprecated,
+so avoid it. The wasmtime C API path would share marshalling with `universalWasmLoader-c`.
 
-Dart has no single canonical WASM host:
-- **Web / Flutter web:** `dart:js_interop` over the browser's native `WebAssembly`.
-- **Native (Dart VM):** `dart:ffi` to a C wasm runtime (e.g. the wasmtime C API — would share
-  marshalling with `universalWasmLoader-c`), or a pure-Dart interpreter. `package:wasm` (Wasmer-based)
-  is effectively deprecated — avoid.
-
-A web-first implementation is likely the cheapest path (no native build step).
-
-## Conformance — build against SPEC 3.0.0 directly
+## Conformance — SPEC 3.0.0
 
 `SPEC.md` (cross-language) is at **v3.0.0 (2026-06-15)**. String/aggregate RETURNS use the **canonical
 callee-allocated** convention: the export returns an i32 pointer to a callee-allocated `[ptr, len]`
@@ -108,9 +120,30 @@ convention from the start — there is **no legacy out-parameter code to migrate
 
 ## Tests
 
-`dart test`, against the same fixtures `wasmtk` produces and the reference suite uses
+`dart test -p chrome` (browser-only, `@TestOn('browser')`), against the reference-suite fixtures
 (`math_50` / `booleans_50` / `strings_50` / `imports_50`) plus the lifecycle scenarios
-(`createSingleton`, `InstancePool`). `strings_50.wasm` exercises the canonical return path.
+(`createSingleton`, `InstancePool`) and the two §10 fixtures. `strings_50.wasm` exercises the
+canonical return path.
+
+**Fixture drift (workspace finding S4, received via handoff H7, 2026-09-20):** 3 of dart's 4
+`*_50.wasm` files are **not** byte-identical to the set shared by c/dotnet/go/js/rs/jvm. The fix
+agreed across the workspace is to regenerate every loader's fixtures from ONE `wasmtk modc` run,
+stamp the source commit, and commit identical bytes. That is still open (see "Open work").
+
+## Open work (as of 2026-10-20)
+
+- **Unpushed commit:** local `main` is 1 ahead of `origin/main`. `985039f` (SPEC §10 WASI shim +
+  `_initialize`) is not on GitHub yet. Pushing is the owner's call.
+- **Handoff H7 / S4:** replace the 3 drifted fixtures with the single-`wasmtk modc`-run set, then
+  re-run `dart test -p chrome`.
+- **Handoff H6 (every repo):** SemVer 2.0.0 with a compatibility gate on the bump script
+  (`scripts/bump.dart` / `bump.sh`), the workspace ★ rules block in a `best-practices.md`, memory
+  layout per `../../cmem/memory-conventions.md`. Not started.
+- **S5:** the workspace asks for a SPEC §10 conformance test per loader port. Dart already has two
+  (§10.1 `_initialize`, §10.2 WASI-using library). Whether they match the eventual shared test is TBD.
+- **Post-transfer checks:** `PUB_DEV_CREDENTIALS` secret and `synapticforge1` Actions policy (see
+  "Repository home").
+- **Native backend:** tracked future (see "Runtime decision").
 
 ## Release flow (implemented 2026-06-15)
 
@@ -126,8 +159,9 @@ convention from the start — there is **no legacy out-parameter code to migrate
    `-js`'s `scripts/publish.ts`, which only tags + pushes so CI publishes).
 3. The pushed `v*` tag triggers `.github/workflows/publish.yml`, which publishes to pub.dev.
 
-**`.github/workflows/publish.yml` — `run:`-only (org Actions policy).** This org permits only
-`jrmarcum`-owned actions; ANY third-party `uses:` step (incl. `actions/checkout`, `dart-lang/setup-dart`,
+**`.github/workflows/publish.yml` — `run:`-only (Actions policy).** The policy under which this was
+built (pre-transfer, owner `jrmarcum`) permitted only `jrmarcum`-owned actions. The `synapticforge1`
+org's policy has not been re-checked (see "Repository home"). Under that policy ANY third-party `uses:` step (incl. `actions/checkout`, `dart-lang/setup-dart`,
 and the official `dart-lang/setup-dart/.github/workflows/publish.yml` reusable OIDC workflow) causes a
 `startup_failure` — nothing runs. So every step is a plain `run:` step:
 - checkout via `git clone --depth=1 --branch <tag> https://x-access-token:<token>@github.com/<repo> .`
