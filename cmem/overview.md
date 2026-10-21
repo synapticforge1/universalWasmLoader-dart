@@ -132,8 +132,9 @@ stamp the source commit, and commit identical bytes. That is still open (see "Op
 
 ## Open work (as of 2026-10-20)
 
-- **Unpushed commit:** local `main` is 1 ahead of `origin/main`. `985039f` (SPEC §10 WASI shim +
-  `_initialize`) is not on GitHub yet. Pushing is the owner's call.
+- **Pushed 2026-10-20:** `985039f` (SPEC §10 WASI shim + `_initialize`) and the transfer/memory
+  commit are on `synapticforge1/universalWasmLoader-dart` `main`. No tag yet, so nothing has been
+  published: pub.dev is still at 0.1.0, which predates §10.
 - **Handoff H7 / S4:** replace the 3 drifted fixtures with the single-`wasmtk modc`-run set, then
   re-run `dart test -p chrome`.
 - **Handoff H6 (every repo):** SemVer 2.0.0 with a compatibility gate on the bump script
