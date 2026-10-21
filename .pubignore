@@ -9,3 +9,6 @@ scripts/
 
 # Agent/instruction file — internal only.
 CLAUDE.md
+
+# Claude Code settings (this file replaces .gitignore for publishing, so list it here too).
+.claude/
