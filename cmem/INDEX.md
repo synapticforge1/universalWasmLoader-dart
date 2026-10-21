@@ -30,4 +30,4 @@ comprehensive audit across tested AND untested paths for: (1) workarounds / temp
 
 | File | What it holds |
 | --- | --- |
-| [overview.md](overview.md) | What this loader port is, its repository home (moved to the `synapticforge1` org, recorded 2026-10-20), language/runtime, API surface, ABI/SPEC conformance status, tests (incl. fixture drift S4), release flow, pub.dev publish status (PUBLISHED 0.1.0), and open work as of 2026-10-20 (unpushed `985039f`, handoffs H6/H7) |
+| [overview.md](overview.md) | What this loader port is, its repository home (moved to the `synapticforge1` org, recorded 2026-10-20), language/runtime, API surface, ABI/SPEC conformance status, tests (incl. fixture drift S4), release flow, pub.dev publish status (PUBLISHED 0.1.0), and open work as of 2026-10-20 (§10 pushed but not yet released, handoffs H6/H7) |
