@@ -55,7 +55,11 @@ loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engi
 
 - `pubspec.yaml` — package `universal_wasm_loader`, version `0.1.0`, SDK `^3.4.0`; deps `web`,
   dev-deps `test` + `lints`.
-- `.pubignore` — excludes `cmem/`, `scripts/`, `CLAUDE.md` from the published pub.dev archive.
+- `.pubignore` — excludes `cmem/`, `scripts/`, `CLAUDE.md`, `.claude/` from the published pub.dev
+  archive. A `.pubignore` REPLACES `.gitignore` for `dart pub publish`, so anything git-ignored that
+  must also stay out of the archive has to be listed here as well.
+- `.gitignore` — also ignores `.claude/settings.local.json` (Claude Code per-machine settings;
+  added 2026-10-20).
 - `analysis_options.yaml` — `package:lints/recommended` + `strict-casts`.
 - `lib/universal_wasm_loader.dart` — public barrel (exports `wasmImport`, `createSingleton`,
   `InstancePool`, `ModuleExports`, the WIT parser surface).

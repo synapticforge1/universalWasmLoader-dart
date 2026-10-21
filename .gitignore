@@ -11,3 +11,6 @@ pubspec.lock
 
 # Generated dartdoc output.
 doc/api/
+
+# Claude Code per-machine settings (local permission allowlists).
+.claude/settings.local.json
