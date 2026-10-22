@@ -1,52 +1,21 @@
 # Overview — universalWasmLoader-dart
 
-The **Dart** port of the Universal WASM Loader (Stage 2 of the polyglot loader ecosystem; the JS/TS
-`universalWasmLoader-js` is the reference, and `SPEC.md` is the cross-language contract). Intended to
-publish to **pub.dev**.
+The **Dart** port of the Universal WASM Loader: package `universal_wasm_loader` on pub.dev. The
+JS/TS `universalWasmLoader-js` is the reference implementation, and its `SPEC.md` is the
+cross-language contract. What is released, and what is open, lives in [open-work.md](open-work.md),
+not here.
 
 ## Repository home — `synapticforge1` organization (recorded 2026-10-20)
 
-The GitHub repo was **transferred from the `jrmarcum` user account to the owner-controlled
-`synapticforge1` organization**: canonical URL **https://github.com/synapticforge1/universalWasmLoader-dart**
-(GitHub API confirms `full_name` = `synapticforge1/universalWasmLoader-dart`, owner type
-`Organization`, default branch `main`). The old `jrmarcum/...` URL still works through GitHub's
-redirect, but that redirect stops working if a repo with the old name is ever created under
-`jrmarcum`. So every reference points at the new owner: `origin`, `pubspec.yaml` `repository:`,
-and README. The reference loader moved with it: `synapticforge1/universalWasmLoader-js` (the old
-`jrmarcum/universalWasmLoader` link resolves there).
+**https://github.com/synapticforge1/universalWasmLoader-dart**: transferred from the `jrmarcum` user
+account to the owner-controlled `synapticforge1` organization (`4a9b9b7`). The old `jrmarcum/...` URL
+only works through GitHub's redirect, which dies if a repo of that name is ever created under
+`jrmarcum`. So `origin`, `pubspec.yaml` `repository:` and README all name the new owner. The
+reference loader moved too: `synapticforge1/universalWasmLoader-js`. pub.dev ownership is a
+Google-account fact and was unaffected. The 0.2.0 release proved the release path after the
+transfer (see [releasing.md](releasing.md)).
 
-- **pub.dev is unaffected by the transfer.** Package ownership is a pub.dev/Google-account fact, not
-  a GitHub one. Since the 0.2.0 publish, pub.dev shows the `synapticforge1` `repository:` URL.
-- **Post-transfer release path VERIFIED by the 0.2.0 release (2026-10-22):** the
-  `PUB_DEV_CREDENTIALS` secret survived the transfer, and the `synapticforge1` org's Actions policy
-  runs the `run:`-only workflow. (Whether that policy would also allow third-party `uses:` steps is
-  still untested; nothing needs it.)
-
-## Status — PUBLISHED to pub.dev, web-first (latest 0.2.0, 2026-10-22)
-
-**`universal_wasm_loader` 0.2.0 is live on https://pub.dev/packages/universal_wasm_loader**
-(versions 0.1.0, 0.2.0). It was a brand-new name at the first publish, so the `jrmarcum` account is the uploader/owner;
-**not** under a pub.dev verified publisher (a future publish could carry one if set up first).
-The `PUB_DEV_CREDENTIALS` repo secret is in place, so subsequent releases need only bump + tag.
-
-- **0.2.0 (2026-10-22):** SPEC §10 — the WASI-P1 shim plus the automatic `_initialize` call; no public
-  API change. Tag `v0.2.0` → bump commit `f550a37`. It was released with `bump.dart minor` followed
-  by `release.dart`, the first real run of `release.dart`, which committed the pending bump, tagged
-  and pushed. CI run 39797726044 succeeded: every step passed, the browser tests actually ran on
-  the runner (no skip warning), the package was published and the GitHub Release `v0.2.0` created.
-  The publish timestamp is 2026-10-22T14:41Z. Pre-flight checks were clean: `analyze`, `format`,
-  `dart test -p chrome` 9/9, and a 14 KB dry-run archive with no internal files.
-- **0.1.0 (2026-06-24):** first publish (see "First publish" below).
-- **CI notice:** the `ubuntu-latest` runner label moves to Ubuntu 26 from 2026-10-19. The workflow
-  installs Dart from the apt repo, so if a future run breaks there, check that step first.
-
-Implemented against **SPEC 3.0.0** as a **web-only** package using `dart:js_interop` over the
-browser's native `WebAssembly` + `fetch`. All of `wasmImport` / `createSingleton` / `InstancePool`,
-WIT auto-detection, the `@N` version pin, and the full Canonical ABI (numerics pass-through; `bool`
-1/0 ↔ true/false; string params via `cabi_realloc(0,0,1,len)`; string returns via the
-callee-allocated `[ptr,len]` pair + `cabi_post_<name>` release) are in place.
-
-### Runtime decision — dual-backend (web now, native later)
+## Runtime decision — dual-backend (web now, native later) 🔒
 
 Dart is the **only** loader language that spans both worlds, so it is **dual-backend** (owner,
 2026-06-15; see wasmtk `cmem/vision.md` → "Loader runtime + WASI strategy"):
@@ -55,63 +24,62 @@ Dart is the **only** loader language that spans both worlds, so it is **dual-bac
 - **Native backend (TRACKED FUTURE):** `dart:ffi` → the **wasmtime C API** (Dart VM / Flutter
   desktop+mobile), getting wasmtime's built-in WASI. Selected vs. the web backend via conditional
   imports. Blocked only by the `libwasmtime` distribution cost (per-platform native binaries /
-  native-assets) — its own mini-project, hence deferred.
+  native-assets) — its own mini-project, hence deferred. It would share marshalling with
+  `universalWasmLoader-c`. Avoid `package:wasm` (Wasmer-based, effectively deprecated).
 
-Note: a Dart **web** app could instead `dart:js_interop`-call the published `-js` loader directly, but
-that re-adds a JS dependency and works on web only; the native-Dart web impl here is preferred. The JS
+A Dart **web** app could instead `dart:js_interop`-call the published `-js` loader directly, but that
+re-adds a JS dependency and works on web only; the native-Dart web impl here is preferred. The JS
 loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engine on the Dart VM).
 
-### File layout
+## API surface
 
-- `pubspec.yaml` — package `universal_wasm_loader`, version `0.2.0`, SDK `^3.4.0`; deps `web`,
-  dev-deps `test` + `lints`.
-- `.pubignore` — excludes `cmem/`, `scripts/`, `CLAUDE.md`, `.claude/` from the published pub.dev
-  archive. A `.pubignore` REPLACES `.gitignore` for `dart pub publish`, so anything git-ignored that
-  must also stay out of the archive has to be listed here as well.
-- `.gitignore` — also ignores `.claude/settings.local.json` (Claude Code per-machine settings;
-  added 2026-10-20).
-- `.gitattributes` — **LF everywhere** (owner, 2026-10-22): `* text=auto eol=lf` plus `*.wasm binary`.
-  It forces LF in the repo and in every working tree whatever a machine's `core.autocrlf` is. (This
-  machine has system `true`, overridden by global `input`.) Before this, `LICENSE` was checked out
-  CRLF and `pubspec.yaml` was mixed: `bump.dart`'s `\s*$` dropped the `\r` on the version line of a
-  CRLF copy. Both were re-checked-out as LF. Check with `git ls-files --eol`: every text file should
-  be `i/lf w/lf`.
-- `analysis_options.yaml` — `package:lints/recommended` + `strict-casts`.
-- `lib/universal_wasm_loader.dart` — public barrel (exports `wasmImport`, `createSingleton`,
-  `InstancePool`, `ModuleExports`, the WIT parser surface).
-- `lib/src/wit_parser.dart` — `parseWit` + `WitFunc`/`WitParam`/`ParsedWit` + kebab helpers.
-- `lib/src/wasm_interop.dart` — `@JS` bindings for `WebAssembly.instantiate`, `fetch`,
-  `Reflect.get/set`, memory views (`memoryBytes`, `readI32`).
-- `lib/src/abi.dart` — `buildComponentImportEnv` / `buildComponentExportProxy` + the `ModuleExports`
-  handle (`call`/`function`/`has`/`names`/`rawExports`).
-- `lib/src/wasi.dart` — **SPEC §10.2** minimal WASI Preview 1 shim (`buildWasiShim` + `WasiMemRef`):
-  a hand-rolled `wasi_snapshot_preview1` import object built from Dart closures via `.toJS`
-  (`fd_write`→`console.log`/`console.error`, `proc_exit`, `random_get`, `clock_time_get`,
-  environ/args, `fd_close`/`fd_fdstat_get`/`fd_seek`). Web-safe i64 writes split into two i32 words
-  (`ByteData.setInt64` is unsupported on the web). Like `-js` (and unlike the native ports), the web
-  backend can't use a runtime built-in, so the shim is hand-rolled.
+Mirrors the reference loader in idiomatic Dart; the authoritative list is the generated
+`api-surface.json` (34 keys on 2026-10-22, unchanged since 0.1.0; see [compat-gate.md](compat-gate.md)):
+- `wasmImport(path, {hostCallbacks})` → a `Future<ModuleExports>`; auto-detects the companion `.wit`,
+  applies the Canonical ABI, falls back to raw exports if there is no `.wit`. Supports the `@N`
+  version-pin suffix (checked against the module's exported `version` global).
+- `createSingleton(path, {hostCallbacks})` — caches the load; same instance every call.
+- `InstancePool(path, {hostCallbacks, size})` — `acquire` / `release` / `run` over N instances.
+- `ModuleExports` — `call` / `function` / `has` / `names` / `rawExports`.
+- The WIT parser: `parseWit`, `ParsedWit`, `WitFunc`, `WitParam`, `kebabToCamel`, `kebabToWasmImportKey`.
+
+## Conformance — SPEC 3.0.0
+
+`SPEC.md` (in `-js`) is at **v3.0.0 (2026-06-15)**; README declares it as `SPEC.md` **v3.0.0**, which
+`surface.dart` reads, so a SPEC move shows in the gate's floor. String/aggregate RETURNS use the
+**canonical callee-allocated** convention: the export returns an i32 pointer to a `[ptr, len]` pair;
+the host reads the little-endian pair, decodes UTF-8, then calls **`cabi_post_<name>(retPtr)`** to
+release it. String PARAMS flatten to `(ptr, len)` written via `cabi_realloc(0,0,1,len)`. Numerics
+pass through; `bool` is `1/0` ↔ `true/false`. There was never a legacy out-parameter path here.
+**SPEC §10** (producer model) since 0.2.0 (`985039f`): the WASI-P1 shim is always attached, and a
+reactor module's `_initialize` is called once after instantiation.
+
+## File layout
+
+- `lib/universal_wasm_loader.dart` — the public barrel; its export list IS the API surface.
 - `lib/src/loader.dart` — `wasmImport`, `createSingleton`, `InstancePool`, version-suffix parsing,
-  version-global assertion. **SPEC §10:** always attaches the WASI shim to the imports (both the
-  no-WIT and WIT branches) and calls a reactor module's `_initialize` (`_callInitialize`) once after
-  instantiation.
-- `test/loader_test.dart` (`@TestOn('browser')`) + `test/fixtures/` (the four `*_50` reference
-  fixtures + the §10 fixtures `wasi_io_50.{wasm,wit}` and `init_check.{wat,wasm}`, + the stamp
-  `fixtures.json`). All are verbatim copies of `-js`'s `tests/`.
-- `scripts/check_fixtures.dart` — verifies `test/fixtures/` against `fixtures.json`. Every listed file
-  must be present and sha256-identical, and no `.wasm`/`.wit`/`.wat` may be unlisted. Port of `-js`'s
-  `scripts/check-fixtures.ts`. It is a hard gate in `publish.yml`. Uses the dev-only dependency `crypto`.
+  version-global assertion; attaches the WASI shim on both the no-WIT and WIT paths and calls
+  `_initialize` (`_callInitialize`).
+- `lib/src/abi.dart` — `buildComponentImportEnv` / `buildComponentExportProxy` + `ModuleExports`.
+- `lib/src/wasi.dart` — **SPEC §10.2** hand-rolled `wasi_snapshot_preview1` (`buildWasiShim` +
+  `WasiMemRef`): `fd_write`→`console.log`/`console.error`, `proc_exit`, `random_get`,
+  `clock_time_get`, environ/args, `fd_close`/`fd_fdstat_get`/`fd_seek`. i64 writes are split into two
+  i32 words (`ByteData.setInt64` is unsupported on the web).
+- `lib/src/wasm_interop.dart` — `@JS` bindings: `WebAssembly.instantiate`, `fetch`, `Reflect.get/set`,
+  memory views (`memoryBytes`, `readI32`).
+- `lib/src/wit_parser.dart` — `parseWit` + `WitFunc`/`WitParam`/`ParsedWit` + kebab helpers.
+- `test/` — see [testing.md](testing.md). `scripts/` — see [releasing.md](releasing.md) and
+  [compat-gate.md](compat-gate.md). `api-surface.json` — the committed surface snapshot.
+- `pubspec.yaml` — SDK `^3.4.0`; dep `web`; dev-deps `test`, `lints`, `crypto` (fixture check),
+  `analyzer` (surface generator).
+- `.pubignore` — keeps `cmem/`, `scripts/`, `CLAUDE.md`, `.claude/`, `api-surface.json` out of the
+  pub.dev archive. ⚠️ A `.pubignore` REPLACES `.gitignore` for `dart pub publish`, so anything
+  git-ignored that must also stay out of the archive is listed here too.
+- `.gitignore` — also `.claude/settings.local.json` (per-machine). `.gitattributes` — LF everywhere
+  (see [working-rules.md](working-rules.md)). `analysis_options.yaml` — `lints/recommended` +
+  `strict-casts`.
 
-### Verification level — `dart analyze` clean + browser tests PASS
-
-Dart SDK 3.12.2 (bundled in the scoop Flutter 3.44.2 install). `dart analyze` → **No issues found**;
-`dart format .` clean. **`dart test -p chrome` ran in real Chrome and all 9 tests passed** (math,
-booleans, strings incl. the Canonical string return, imports with host callbacks, `createSingleton`
-identity, `InstancePool.run`, 2 concurrent pooled runs, plus the two **SPEC §10** tests: §10.1
-`_initialize` on the no-WIT raw path via `init_check.wasm`, and §10.2 a WASI-using library
-`wasi_io_50.wasm` — `logAndDouble(21)==42` — instantiating only because the shim supplies
-`fd_write`). Added 2026-07-05.
-
-### Key js_interop note (gotcha)
+## js_interop gotcha ⚠️
 
 WASM calls each `env` import with the **flattened ABI arity** (a `string` param is two i32s). The
 Dart closure handed to `.toJS` must tolerate that exact count — a fixed-arity closure throws
@@ -119,129 +87,3 @@ Dart closure handed to `.toJS` must tolerate that exact count — a fixed-arity 
 params** (8 slots) so any arity 0..8 is accepted. Export calls use `Function.prototype.apply`
 (bound via `@JS('Function.prototype.apply.call')`) to pass an arbitrary arg count, since
 `callAsFunction` is fixed at 4.
-
-## API surface (implemented; unchanged since 0.1.0)
-
-Mirrors the reference loader in idiomatic Dart:
-- `wasmImport(path, {hostCallbacks})` → a `Future` resolving to a `ModuleExports` handle; auto-detects
-  the companion `.wit`, applies the Canonical ABI, falls back to raw exports if there is no `.wit`.
-  Supports the `@N` version-pin suffix (checked against the module's exported `version` global).
-- `createSingleton(path, {hostCallbacks})` — caches the load; same instance every call.
-- `InstancePool(path, {hostCallbacks, size})` — `acquire` / `release` / `run` over N instances.
-
-The runtime choice (formerly an open decision) is settled: see "Runtime decision — dual-backend" above.
-Native-backend note kept from that analysis: `package:wasm` (Wasmer-based) is effectively deprecated,
-so avoid it. The wasmtime C API path would share marshalling with `universalWasmLoader-c`.
-
-## Conformance — SPEC 3.0.0
-
-`SPEC.md` (cross-language) is at **v3.0.0 (2026-06-15)**. String/aggregate RETURNS use the **canonical
-callee-allocated** convention: the export returns an i32 pointer to a callee-allocated `[ptr, len]`
-pair; the host reads the little-endian pair, decodes UTF-8, then calls the paired
-**`cabi_post_<name>(retPtr)`** export to release it. String PARAMS flatten to `(ptr, len)` written via
-`cabi_realloc(0,0,1,len)`. Numerics pass through; `bool` is `1/0` ↔ `true/false`. Implement the NEW
-convention from the start — there is **no legacy out-parameter code to migrate** here.
-
-## Tests
-
-`dart test -p chrome` (browser-only, `@TestOn('browser')`), against the reference-suite fixtures
-(`math_50` / `booleans_50` / `strings_50` / `imports_50`) plus the lifecycle scenarios
-(`createSingleton`, `InstancePool`) and the two §10 fixtures. `strings_50.wasm` exercises the
-canonical return path.
-
-**Reference fixtures — H7 / S4 DONE (2026-10-22).** The workspace agreed that one `wasmtk modc` run
-produces the set, `-js` stamps it, and every port copies the bytes unchanged. `-js` did its side in
-`bd4f8ab` (2026-10-12). Its `tests/` holds the set; its `tests/fixtures.json` stamps wasmtk
-`f50c8e4` (`v2.0.3-64-gf50c8e419a0`) with each file's sha256. Dart's copy was taken from `-js`
-`1cfb863` (clean, pushed). By then only 3 files were off: `strings_50.wasm` and `wasi_io_50.wasm`
-had different bytes, and `init_check.wat` was missing. The other 8 already matched, including
-every `.wit`. The workspace's 2026-10 status note claimed "dart's four match" and was wrong about
-`strings_50`. After copying those 3 plus `fixtures.json`, all 12 stamped files verify and
-`dart test -p chrome` is 9/9. **To refresh after `-js` regenerates:** copy every file listed in its
-`tests/fixtures.json`, plus that file itself, into `test/fixtures/`. Then run
-`dart run scripts/check_fixtures.dart` and the browser tests. Never edit a fixture by hand.
-
-## Open work (as of 2026-10-22)
-
-- **Unreleased since 0.2.0:** the fixture refresh (it ships in the `test/` folder of the archive)
-  and the README §10 fix. pub.dev's README for 0.2.0 still wrongly says §10 is "Not implemented"
-  until the next release.
-- **Handoff H6 (every repo):** SemVer 2.0.0 with a compatibility gate on the bump script
-  (`scripts/bump.dart`), the workspace ★ rules block in a `best-practices.md`, memory
-  layout per `../../cmem/memory-conventions.md`. Not started.
-- **S5:** the workspace asks for a SPEC §10 conformance test per loader port. Dart already has two
-  (§10.1 `_initialize`, §10.2 WASI-using library). Whether they match the eventual shared test is TBD.
-- **Native backend:** tracked future (see "Runtime decision").
-
-## Release flow (implemented 2026-06-15)
-
-**Version source:** `pubspec.yaml` (`version:`) is the single source of truth.
-
-**Bump → tag → push:**
-
-1. `dart run scripts/bump.dart [patch|minor|major]` (default `patch`) — raises the `version:` line
-   with a targeted edit (rest of the file untouched). Mirrors `-js`'s `scripts/bump.ts` UX.
-2. `dart run scripts/release.dart` — commits a pending pubspec bump, tags `vX.Y.Z` from the current
-   `pubspec.yaml` version, and pushes the tag. Works from any cwd (resolves the root from the script
-   path). It NEVER runs `dart pub publish` locally (mirrors `-js`'s `scripts/publish.ts`, which only
-   tags + pushes so CI publishes).
-3. The pushed `v*` tag triggers `.github/workflows/publish.yml`, which publishes to pub.dev.
-
-**Scripting runtime — Dart only; Bun for TypeScript (owner, 2026-10-22).** Bun is the workspace's
-TypeScript script runner. This repo's scripts are in its own language (Dart), so releasing needs
-only the Dart SDK: no Bun, Node or `package.json`. The bash twins `scripts/bump.sh` and `scripts/release.sh`
-were deleted on 2026-10-22 (they broke the workspace "no shell scripts" rule). `release.dart` is a
-behavior-for-behavior port of `release.sh`. It was dry-run verified in a throwaway repo, then
-proven by the real 0.2.0 release on 2026-10-22. The `-js` references above stay valid: `-js` runs
-its `scripts/*.ts` under Bun (it has `package.json` + `bun.lock`) and kept the file names.
-New scripts here are Dart. If a TypeScript script is ever unavoidable, it runs under `bun`.
-
-**`.github/workflows/publish.yml` — `run:`-only (Actions policy).** The policy under which this was
-built (pre-transfer, owner `jrmarcum`) permitted only `jrmarcum`-owned actions. Under the
-`synapticforge1` org this workflow has run successfully (0.2.0), but third-party `uses:` steps have
-not been tried there. Under the original policy ANY third-party `uses:` step (incl. `actions/checkout`, `dart-lang/setup-dart`,
-and the official `dart-lang/setup-dart/.github/workflows/publish.yml` reusable OIDC workflow) causes a
-`startup_failure` — nothing runs. So every step is a plain `run:` step:
-- checkout via `git clone --depth=1 --branch <tag> https://x-access-token:<token>@github.com/<repo> .`
-- install the Dart SDK from the official Dart apt repo (`/usr/lib/dart/bin` → `$GITHUB_PATH`)
-- `dart pub get`, `dart analyze`, best-effort `dart test -p chrome` (web-only package; skipped with a
-  logged `::warning::` if no Chrome on the runner — does not block publish)
-- write the `PUB_DEV_CREDENTIALS` secret to `pub-credentials.json` (in `$HOME/.config/dart/`,
-  `$XDG_CONFIG_HOME/dart/` if set, and `$HOME/.pub-cache/credentials.json` for older SDKs), then
-  `dart pub publish --force`
-- `gh release create` for the tag
-
-**Why credentials-file, not OIDC:** the official pub.dev automated-publishing path is the
-`dart-lang/setup-dart/.github/workflows/publish.yml` reusable workflow — a third-party `uses:`,
-forbidden by org policy. So we use a credentials-file publish in `run:` steps instead.
-
-### Required owner setup (one-time)
-
-1. **Own the package on pub.dev.** The package name `universal_wasm_loader` must be created/owned by
-   the publishing account (a verified publisher is recommended if used). First publish of a brand-new
-   name will create it under your account.
-2. **Generate the `PUB_DEV_CREDENTIALS` secret.** Locally run `dart pub login` and complete the
-   Google OAuth flow. This writes `pub-credentials.json` to Dart's config dir:
-   - Linux: `$XDG_CONFIG_HOME/dart/pub-credentials.json` (or `~/.config/dart/pub-credentials.json`)
-   - Windows: `%APPDATA%\dart\pub-credentials.json`
-   - macOS: `~/Library/Application Support/dart/pub-credentials.json`
-   Copy the FULL JSON contents of that file into a GitHub repo secret named **`PUB_DEV_CREDENTIALS`**
-   (Settings → Secrets and variables → Actions → New repository secret). It contains a refresh token,
-   so treat it as sensitive; rotate by re-running `dart pub login` and updating the secret.
-
-### Published archive contents — `.pubignore` (added 2026-06-24)
-
-A root `.pubignore` (gitignore syntax; consulted only by `dart pub publish`) keeps internal files in
-git but **out of the published tarball**: `cmem/`, `scripts/`, and `CLAUDE.md`. This shrank the
-archive from **19 KB → 12 KB**; `dart pub publish --dry-run` stays at **0 warnings**. The published
-tree is `lib/`, `test/` (incl. `*.wasm`/`*.wit` fixtures), `README.md`, `CHANGELOG.md`, `LICENSE`,
-`pubspec.yaml`, `analysis_options.yaml`.
-
-### First publish (2026-06-24) — DONE via CI
-
-`dart pub publish --dry-run` (Dart 3.12.2) had previously validated 0-warnings/exit-0. The real
-publish was performed by the CI flow: `scripts/release.sh` (since replaced by `release.dart`) committed the `.pubignore` change, tagged
-`v0.1.0` from `pubspec.yaml`, and pushed `main` + the tag; `.github/workflows/publish.yml` ran to
-**success** and uploaded to pub.dev (verified: `GET pub.dev/api/packages/universal_wasm_loader` →
-200, `"version":"0.1.0"`). Both bump scripts remain verified for patch/minor/major + bad-kind
-rejection.

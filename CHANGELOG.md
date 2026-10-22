@@ -5,7 +5,10 @@
 - Test fixtures are now byte-identical copies of the shared reference set (stamped in
   `test/fixtures/fixtures.json`); `strings_50.wasm` and `wasi_io_50.wasm` updated, `init_check.wat`
   added.
-- README: corrected the Runtime section, which said SPEC §10 was not implemented.
+- README: corrected the Runtime section, which said SPEC §10 was not implemented; added a
+  `### ⚠️ Breaking Changes` table (recording the 0.2.0 `_initialize` behaviour change).
+- Releases are now checked by a compatibility gate (repository tooling, not part of the package):
+  the public API is compared with the previous release, and its tests must still pass.
 - No library code changes.
 
 ## 0.2.0

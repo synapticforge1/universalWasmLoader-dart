@@ -4,8 +4,9 @@
 # Internal, portable project memory — not useful to package consumers.
 cmem/
 
-# Release tooling (bump/tag/push) — not useful to package consumers.
+# Release tooling (bump/tag/push, the compatibility gate) — not useful to package consumers.
 scripts/
+api-surface.json
 
 # Agent/instruction file — internal only.
 CLAUDE.md

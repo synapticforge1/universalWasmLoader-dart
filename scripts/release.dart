@@ -1,7 +1,10 @@
 // Tags vX.Y.Z from the current pubspec.yaml version and pushes the tag, which
 // triggers .github/workflows/publish.yml to publish to pub.dev.
 //
-// Run via:  dart run scripts/release.dart   # commit any pending pubspec bump, tag, push
+// Run via:  dart run scripts/release.dart   # commit any pending bump, tag, push
+//
+// "Pending bump" = what `bump.dart` writes: pubspec.yaml, plus the README
+// Breaking Changes row and CHANGELOG heading it stamps.
 //
 // Mirrors the `-js` reference's `scripts/publish.ts`: this NEVER runs
 // `dart pub publish` locally — it only tags + pushes so CI does the publish.
@@ -25,9 +28,10 @@ void main() {
 
   print('Releasing $tag via GitHub Actions…');
 
-  // Commit a pending pubspec.yaml version change, if any.
-  if (_git(['diff', '--quiet', '--', 'pubspec.yaml'], check: false) != 0) {
-    _git(['add', 'pubspec.yaml']);
+  // Commit a pending bump (the files bump.dart writes), if any.
+  const bumped = ['pubspec.yaml', 'README.md', 'CHANGELOG.md'];
+  if (_git(['diff', '--quiet', '--', ...bumped], check: false) != 0) {
+    _git(['add', '--', ...bumped]);
     _git(['commit', '-m', 'bump version to $tag']);
   }
 
