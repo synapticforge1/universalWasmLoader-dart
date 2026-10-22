@@ -50,6 +50,10 @@ output are printed. The worktree is always removed.
 
 The previous-tag tests stayed green for the removal: no test calls `kebabToCamel`, which is correct.
 
+**First real use (2026-10-22, 0.2.1):** `bump.dart patch` was allowed at floor patch, with the
+previous-tag tests 9/9. In CI, the self-test and `compat --release` passed on the runner (run
+39803257031), so the CI half has now run for real, not only in the scratch clone.
+
 ## Traps met building it
 
 - `copyDir` first joined a separator-terminated base path wrongly (`lib` + `src\abi.dart` →
