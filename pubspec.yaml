@@ -2,7 +2,7 @@ name: universal_wasm_loader
 description: >-
   Web-first Dart loader for WebAssembly "DLL" modules. Auto-detects the companion
   .wit, applies the Canonical ABI (wasmtime profile), and returns a typed handle.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/synapticforge1/universalWasmLoader-dart
 
 environment:
