@@ -50,6 +50,11 @@ jobs:
       - name: Analyze
         run: dart analyze
 
+      - name: Check fixtures match the reference stamp
+        # Hard gate (unlike the browser tests): test/fixtures/ must be the -js
+        # reference set, byte for byte (H7 / S4).
+        run: dart run scripts/check_fixtures.dart
+
       - name: Test (best-effort, needs a browser)
         run: |
           set -euo pipefail

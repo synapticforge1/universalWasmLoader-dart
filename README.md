@@ -67,8 +67,10 @@ final result = await pool.run((mod) => mod.call('square', [6])); // 36
 Implemented against the browser `WebAssembly` API via `dart:js_interop`. A native Dart-VM backend
 (e.g. wasmtime via `dart:ffi`) is a possible follow-up but is not part of this package.
 
-Not implemented (SPEC §10, optional in v3.0.0): the `_initialize` reactor call and the WASI-P1 shim.
-The four reference fixtures need neither.
+SPEC §10 (producer model) is implemented since 0.2.0. Every module gets a minimal WASI Preview 1 shim
+(`wasi_snapshot_preview1`; `fd_write` goes to the browser console), so library modules that do I/O
+load in the browser. A reactor module's exported `_initialize` is called once, automatically, right
+after instantiation; don't call it yourself.
 
 ## Testing
 
@@ -76,10 +78,14 @@ The four reference fixtures need neither.
 dart pub get
 dart analyze
 dart test -p chrome   # requires a Chrome/Chromium browser
+dart run scripts/check_fixtures.dart
 ```
 
-Tests run against the `wasmtk` reference fixtures (`math_50`, `booleans_50`, `strings_50`,
-`imports_50`) in `test/fixtures/`, covering the SPEC §8 suite plus the lifecycle scenarios.
+Tests run against the shared reference fixtures in `test/fixtures/` (`math_50`, `booleans_50`,
+`strings_50`, `imports_50`, plus the §10 fixtures `wasi_io_50` and `init_check`), covering the
+SPEC §8 suite, the lifecycle scenarios, and §10. The fixtures are byte-identical copies of the
+reference loader's set, built by `wasmtk modc`. `test/fixtures/fixtures.json` stamps the wasmtk
+commit and each file's sha256, and `scripts/check_fixtures.dart` verifies them against it.
 
 ## Releasing
 
