@@ -16,19 +16,29 @@ and README. The reference loader moved with it: `synapticforge1/universalWasmLoa
 `jrmarcum/universalWasmLoader` link resolves there).
 
 - **pub.dev is unaffected by the transfer.** Package ownership is a pub.dev/Google-account fact, not
-  a GitHub one. The `repository:` URL shown on pub.dev only changes with the next publish.
-- **Not re-verified after the transfer (needs org-admin access):** (1) that the `PUB_DEV_CREDENTIALS`
-  repo secret is still present, and (2) the `synapticforge1` org's Actions policy. The `run:`-only
-  workflow below has no `uses:` steps, so it keeps working whatever that policy allows. Check both
-  before the next release tag.
+  a GitHub one. Since the 0.2.0 publish, pub.dev shows the `synapticforge1` `repository:` URL.
+- **Post-transfer release path VERIFIED by the 0.2.0 release (2026-10-22):** the
+  `PUB_DEV_CREDENTIALS` secret survived the transfer, and the `synapticforge1` org's Actions policy
+  runs the `run:`-only workflow. (Whether that policy would also allow third-party `uses:` steps is
+  still untested; nothing needs it.)
 
-## Status — PUBLISHED to pub.dev, web-first (first publish 2026-06-24)
+## Status — PUBLISHED to pub.dev, web-first (latest 0.2.0, 2026-10-22)
 
-**`universal_wasm_loader` 0.1.0 is live on https://pub.dev/packages/universal_wasm_loader**
-(first publish 2026-06-24 via the CI workflow — conclusion `success`; tag `v0.1.0`; GitHub Release
-`v0.1.0` created). It was a brand-new name, so the `jrmarcum` account is the uploader/owner;
+**`universal_wasm_loader` 0.2.0 is live on https://pub.dev/packages/universal_wasm_loader**
+(versions 0.1.0, 0.2.0). It was a brand-new name at the first publish, so the `jrmarcum` account is the uploader/owner;
 **not** under a pub.dev verified publisher (a future publish could carry one if set up first).
 The `PUB_DEV_CREDENTIALS` repo secret is in place, so subsequent releases need only bump + tag.
+
+- **0.2.0 (2026-10-22):** SPEC §10 — the WASI-P1 shim plus the automatic `_initialize` call; no public
+  API change. Tag `v0.2.0` → bump commit `f550a37`. It was released with `bump.dart minor` followed
+  by `release.dart`, the first real run of `release.dart`, which committed the pending bump, tagged
+  and pushed. CI run 39797726044 succeeded: every step passed, the browser tests actually ran on
+  the runner (no skip warning), the package was published and the GitHub Release `v0.2.0` created.
+  The publish timestamp is 2026-10-22T14:41Z. Pre-flight checks were clean: `analyze`, `format`,
+  `dart test -p chrome` 9/9, and a 14 KB dry-run archive with no internal files.
+- **0.1.0 (2026-06-24):** first publish (see "First publish" below).
+- **CI notice:** the `ubuntu-latest` runner label moves to Ubuntu 26 from 2026-10-19. The workflow
+  installs Dart from the apt repo, so if a future run breaks there, check that step first.
 
 Implemented against **SPEC 3.0.0** as a **web-only** package using `dart:js_interop` over the
 browser's native `WebAssembly` + `fetch`. All of `wasmImport` / `createSingleton` / `InstancePool`,
@@ -53,7 +63,7 @@ loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engi
 
 ### File layout
 
-- `pubspec.yaml` — package `universal_wasm_loader`, version `0.1.0`, SDK `^3.4.0`; deps `web`,
+- `pubspec.yaml` — package `universal_wasm_loader`, version `0.2.0`, SDK `^3.4.0`; deps `web`,
   dev-deps `test` + `lints`.
 - `.pubignore` — excludes `cmem/`, `scripts/`, `CLAUDE.md`, `.claude/` from the published pub.dev
   archive. A `.pubignore` REPLACES `.gitignore` for `dart pub publish`, so anything git-ignored that
@@ -106,7 +116,7 @@ params** (8 slots) so any arity 0..8 is accepted. Export calls use `Function.pro
 (bound via `@JS('Function.prototype.apply.call')`) to pass an arbitrary arg count, since
 `callAsFunction` is fixed at 4.
 
-## API surface (implemented, published in 0.1.0)
+## API surface (implemented; unchanged since 0.1.0)
 
 Mirrors the reference loader in idiomatic Dart:
 - `wasmImport(path, {hostCallbacks})` → a `Future` resolving to a `ModuleExports` handle; auto-detects
@@ -140,11 +150,8 @@ canonical return path.
 agreed across the workspace is to regenerate every loader's fixtures from ONE `wasmtk modc` run,
 stamp the source commit, and commit identical bytes. That is still open (see "Open work").
 
-## Open work (as of 2026-10-20)
+## Open work (as of 2026-10-22)
 
-- **Pushed 2026-10-20:** `985039f` (SPEC §10 WASI shim + `_initialize`) and the transfer/memory
-  commit are on `synapticforge1/universalWasmLoader-dart` `main`. No tag yet, so nothing has been
-  published: pub.dev is still at 0.1.0, which predates §10.
 - **Handoff H7 / S4:** replace the 3 drifted fixtures with the single-`wasmtk modc`-run set, then
   re-run `dart test -p chrome`.
 - **Handoff H6 (every repo):** SemVer 2.0.0 with a compatibility gate on the bump script
@@ -152,8 +159,6 @@ stamp the source commit, and commit identical bytes. That is still open (see "Op
   layout per `../../cmem/memory-conventions.md`. Not started.
 - **S5:** the workspace asks for a SPEC §10 conformance test per loader port. Dart already has two
   (§10.1 `_initialize`, §10.2 WASI-using library). Whether they match the eventual shared test is TBD.
-- **Post-transfer checks:** `PUB_DEV_CREDENTIALS` secret and `synapticforge1` Actions policy (see
-  "Repository home").
 - **Native backend:** tracked future (see "Runtime decision").
 
 ## Release flow (implemented 2026-06-15)
@@ -174,14 +179,15 @@ stamp the source commit, and commit identical bytes. That is still open (see "Op
 TypeScript script runner. This repo's scripts are in its own language (Dart), so releasing needs
 only the Dart SDK: no Bun, Node or `package.json`. The bash twins `scripts/bump.sh` and `scripts/release.sh`
 were deleted on 2026-10-22 (they broke the workspace "no shell scripts" rule). `release.dart` is a
-behavior-for-behavior port of `release.sh`, dry-run verified in a throwaway repo: it committed the
-bump and tagged, then failed cleanly at `push`. The `-js` references above stay valid: `-js` runs
+behavior-for-behavior port of `release.sh`. It was dry-run verified in a throwaway repo, then
+proven by the real 0.2.0 release on 2026-10-22. The `-js` references above stay valid: `-js` runs
 its `scripts/*.ts` under Bun (it has `package.json` + `bun.lock`) and kept the file names.
 New scripts here are Dart. If a TypeScript script is ever unavoidable, it runs under `bun`.
 
 **`.github/workflows/publish.yml` — `run:`-only (Actions policy).** The policy under which this was
-built (pre-transfer, owner `jrmarcum`) permitted only `jrmarcum`-owned actions. The `synapticforge1`
-org's policy has not been re-checked (see "Repository home"). Under that policy ANY third-party `uses:` step (incl. `actions/checkout`, `dart-lang/setup-dart`,
+built (pre-transfer, owner `jrmarcum`) permitted only `jrmarcum`-owned actions. Under the
+`synapticforge1` org this workflow has run successfully (0.2.0), but third-party `uses:` steps have
+not been tried there. Under the original policy ANY third-party `uses:` step (incl. `actions/checkout`, `dart-lang/setup-dart`,
 and the official `dart-lang/setup-dart/.github/workflows/publish.yml` reusable OIDC workflow) causes a
 `startup_failure` — nothing runs. So every step is a plain `run:` step:
 - checkout via `git clone --depth=1 --branch <tag> https://x-access-token:<token>@github.com/<repo> .`
