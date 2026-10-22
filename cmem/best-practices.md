@@ -16,8 +16,8 @@ with the next free number; numbers are never reused.
   been refused forever. Only the "row present → allowed" self-test case caught it, before any
   commit (2026-10-22). Workspace 2.1, paid locally. [universal-wasm-loader-dart]
 - **L3 A README claim is a test nobody runs.** The 0.2.0 README said SPEC §10 was "Not implemented"
-  in the very release that implemented it. pub.dev shows that text until the next release
-  (found 2026-10-22). Workspace 6.1, paid locally. [universal-wasm-loader-dart]
+  in the very release that implemented it. pub.dev showed that text until 0.2.1 replaced it
+  (found and fixed 2026-10-22). Workspace 6.1, paid locally. [universal-wasm-loader-dart]
 - **L4 In a line-anchored regex, match horizontal whitespace `[ \t]*`, never `\s*`.** `bump.dart`'s
   `\s*$` swallowed the `\r` of a CRLF `version:` line and left `pubspec.yaml` with mixed line
   endings (found 2026-10-22, fixed in the H6 gate commit). [universal-wasm-loader-dart]

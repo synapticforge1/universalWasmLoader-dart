@@ -45,6 +45,14 @@ bash twins `bump.sh` / `release.sh` were deleted in `a75b167` (no shell scripts,
 
 ## Release history (summaries; git is the archive)
 
+- **0.2.1 (2026-10-22), tag → `1fc0757`.** No library change: the README §10 correction, the stamped
+  H7 fixtures, the Breaking Changes table. It is the first release through the compatibility gate:
+  locally, `bump.dart patch` was allowed at floor patch with the previous-tag tests 9/9. In CI, run
+  39803257031 passed every step, including the three blocking ones (fixtures, gate self-test,
+  `compat --release`). For a patch, that last step can only pass if the previous tag's suite ran
+  green in Chrome on the runner. Published at 15:17Z, and pub.dev's README now shows the corrected
+  §10 text.
+
 - **0.2.0 (2026-10-22), tag → `f550a37`.** SPEC §10 (`985039f`); no API change. The first real run of
   `release.dart`, and the first release after the org transfer. CI run 39797726044 was green on every
   step, the browser tests really ran on the runner, and it published at 14:41Z.
