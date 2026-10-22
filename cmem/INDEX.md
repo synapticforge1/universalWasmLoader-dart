@@ -30,4 +30,4 @@ comprehensive audit across tested AND untested paths for: (1) workarounds / temp
 
 | File | What it holds |
 | --- | --- |
-| [overview.md](overview.md) | What this loader port is, its repository home (moved to the `synapticforge1` org, recorded 2026-10-20), language/runtime, API surface, ABI/SPEC conformance status, tests (incl. fixture drift S4), release flow (Dart-only scripts; Bun for TypeScript, 2026-10-22), pub.dev publish status (PUBLISHED 0.2.0 on 2026-10-22, the first release via `release.dart` from the new org), and open work as of 2026-10-22 (handoffs H6/H7, S5) |
+| [overview.md](overview.md) | What this loader port is, its repository home (moved to the `synapticforge1` org, recorded 2026-10-20), language/runtime, API surface, ABI/SPEC conformance status, tests + reference fixtures (H7/S4 done 2026-10-22: verbatim `-js` set, stamp-checked), release flow (Dart-only scripts; Bun for TypeScript, 2026-10-22), pub.dev publish status (PUBLISHED 0.2.0 on 2026-10-22, the first release via `release.dart` from the new org), and open work as of 2026-10-22 (unreleased fixture + README fix, handoff H6, S5) |

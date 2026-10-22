@@ -94,8 +94,12 @@ loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engi
   version-global assertion. **SPEC §10:** always attaches the WASI shim to the imports (both the
   no-WIT and WIT branches) and calls a reactor module's `_initialize` (`_callInitialize`) once after
   instantiation.
-- `test/loader_test.dart` (`@TestOn('browser')`) + `test/fixtures/*.{wasm,wit}` (the four
-  `*_50` reference fixtures + the §10 fixtures `init_check.wasm` and `wasi_io_50.{wasm,wit}`).
+- `test/loader_test.dart` (`@TestOn('browser')`) + `test/fixtures/` (the four `*_50` reference
+  fixtures + the §10 fixtures `wasi_io_50.{wasm,wit}` and `init_check.{wat,wasm}`, + the stamp
+  `fixtures.json`). All are verbatim copies of `-js`'s `tests/`.
+- `scripts/check_fixtures.dart` — verifies `test/fixtures/` against `fixtures.json`. Every listed file
+  must be present and sha256-identical, and no `.wasm`/`.wit`/`.wat` may be unlisted. Port of `-js`'s
+  `scripts/check-fixtures.ts`. It is a hard gate in `publish.yml`. Uses the dev-only dependency `crypto`.
 
 ### Verification level — `dart analyze` clean + browser tests PASS
 
@@ -145,15 +149,23 @@ convention from the start — there is **no legacy out-parameter code to migrate
 (`createSingleton`, `InstancePool`) and the two §10 fixtures. `strings_50.wasm` exercises the
 canonical return path.
 
-**Fixture drift (workspace finding S4, received via handoff H7, 2026-09-20):** 3 of dart's 4
-`*_50.wasm` files are **not** byte-identical to the set shared by c/dotnet/go/js/rs/jvm. The fix
-agreed across the workspace is to regenerate every loader's fixtures from ONE `wasmtk modc` run,
-stamp the source commit, and commit identical bytes. That is still open (see "Open work").
+**Reference fixtures — H7 / S4 DONE (2026-10-22).** The workspace agreed that one `wasmtk modc` run
+produces the set, `-js` stamps it, and every port copies the bytes unchanged. `-js` did its side in
+`bd4f8ab` (2026-10-12). Its `tests/` holds the set; its `tests/fixtures.json` stamps wasmtk
+`f50c8e4` (`v2.0.3-64-gf50c8e419a0`) with each file's sha256. Dart's copy was taken from `-js`
+`1cfb863` (clean, pushed). By then only 3 files were off: `strings_50.wasm` and `wasi_io_50.wasm`
+had different bytes, and `init_check.wat` was missing. The other 8 already matched, including
+every `.wit`. The workspace's 2026-10 status note claimed "dart's four match" and was wrong about
+`strings_50`. After copying those 3 plus `fixtures.json`, all 12 stamped files verify and
+`dart test -p chrome` is 9/9. **To refresh after `-js` regenerates:** copy every file listed in its
+`tests/fixtures.json`, plus that file itself, into `test/fixtures/`. Then run
+`dart run scripts/check_fixtures.dart` and the browser tests. Never edit a fixture by hand.
 
 ## Open work (as of 2026-10-22)
 
-- **Handoff H7 / S4:** replace the 3 drifted fixtures with the single-`wasmtk modc`-run set, then
-  re-run `dart test -p chrome`.
+- **Unreleased since 0.2.0:** the fixture refresh (it ships in the `test/` folder of the archive)
+  and the README §10 fix. pub.dev's README for 0.2.0 still wrongly says §10 is "Not implemented"
+  until the next release.
 - **Handoff H6 (every repo):** SemVer 2.0.0 with a compatibility gate on the bump script
   (`scripts/bump.dart`), the workspace ★ rules block in a `best-practices.md`, memory
   layout per `../../cmem/memory-conventions.md`. Not started.

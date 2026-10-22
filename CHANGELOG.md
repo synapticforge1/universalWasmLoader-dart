@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Test fixtures are now byte-identical copies of the shared reference set (stamped in
+  `test/fixtures/fixtures.json`); `strings_50.wasm` and `wasi_io_50.wasm` updated, `init_check.wat`
+  added.
+- README: corrected the Runtime section, which said SPEC §10 was not implemented.
+- No library code changes.
+
 ## 0.2.0
 
 - SPEC §10 (producer model) loader capabilities:
