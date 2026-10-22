@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
 - Test fixtures are now byte-identical copies of the shared reference set (stamped in
   `test/fixtures/fixtures.json`); `strings_50.wasm` and `wasi_io_50.wasm` updated, `init_check.wat`
