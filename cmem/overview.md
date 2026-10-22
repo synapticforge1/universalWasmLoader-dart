@@ -60,6 +60,12 @@ loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engi
   must also stay out of the archive has to be listed here as well.
 - `.gitignore` — also ignores `.claude/settings.local.json` (Claude Code per-machine settings;
   added 2026-10-20).
+- `.gitattributes` — **LF everywhere** (owner, 2026-10-22): `* text=auto eol=lf` plus `*.wasm binary`.
+  It forces LF in the repo and in every working tree whatever a machine's `core.autocrlf` is. (This
+  machine has system `true`, overridden by global `input`.) Before this, `LICENSE` was checked out
+  CRLF and `pubspec.yaml` was mixed: `bump.dart`'s `\s*$` dropped the `\r` on the version line of a
+  CRLF copy. Both were re-checked-out as LF. Check with `git ls-files --eol`: every text file should
+  be `i/lf w/lf`.
 - `analysis_options.yaml` — `package:lints/recommended` + `strict-casts`.
 - `lib/universal_wasm_loader.dart` — public barrel (exports `wasmImport`, `createSingleton`,
   `InstancePool`, `ModuleExports`, the WIT parser surface).
