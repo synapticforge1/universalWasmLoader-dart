@@ -86,7 +86,7 @@ Tests run against the `wasmtk` reference fixtures (`math_50`, `booleans_50`, `st
 The package version lives in **`pubspec.yaml`** (`version:`) — the single source of truth.
 
 ```bash
-# 1. Raise the version (default: patch). Pure-POSIX alt: scripts/bump.sh
+# 1. Raise the version (default: patch).
 dart run scripts/bump.dart            # 0.1.0 → 0.1.1
 dart run scripts/bump.dart minor      # 0.1.0 → 0.2.0
 dart run scripts/bump.dart major      # 0.1.0 → 1.0.0
@@ -95,7 +95,7 @@ dart run scripts/bump.dart major      # 0.1.0 → 1.0.0
 dart pub publish --dry-run
 
 # 3. Tag vX.Y.Z from pubspec.yaml and push — this triggers CI to publish.
-scripts/release.sh
+dart run scripts/release.dart
 ```
 
 Pushing a `v*` tag runs `.github/workflows/publish.yml`, which installs the Dart SDK and runs

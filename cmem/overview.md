@@ -142,7 +142,7 @@ stamp the source commit, and commit identical bytes. That is still open (see "Op
 - **Handoff H7 / S4:** replace the 3 drifted fixtures with the single-`wasmtk modc`-run set, then
   re-run `dart test -p chrome`.
 - **Handoff H6 (every repo):** SemVer 2.0.0 with a compatibility gate on the bump script
-  (`scripts/bump.dart` / `bump.sh`), the workspace ★ rules block in a `best-practices.md`, memory
+  (`scripts/bump.dart`), the workspace ★ rules block in a `best-practices.md`, memory
   layout per `../../cmem/memory-conventions.md`. Not started.
 - **S5:** the workspace asks for a SPEC §10 conformance test per loader port. Dart already has two
   (§10.1 `_initialize`, §10.2 WASI-using library). Whether they match the eventual shared test is TBD.
@@ -156,13 +156,22 @@ stamp the source commit, and commit identical bytes. That is still open (see "Op
 
 **Bump → tag → push:**
 
-1. `dart run scripts/bump.dart [patch|minor|major]` (default `patch`) — or the pure-POSIX
-   `scripts/bump.sh` — raises the `version:` line with a targeted edit (rest of the file untouched).
-   Mirrors `-js`'s `scripts/bump.ts` UX.
-2. `scripts/release.sh` — commits a pending pubspec bump, tags `vX.Y.Z` from the current
-   `pubspec.yaml` version, and pushes the tag. It NEVER runs `dart pub publish` locally (mirrors
-   `-js`'s `scripts/publish.ts`, which only tags + pushes so CI publishes).
+1. `dart run scripts/bump.dart [patch|minor|major]` (default `patch`) — raises the `version:` line
+   with a targeted edit (rest of the file untouched). Mirrors `-js`'s `scripts/bump.ts` UX.
+2. `dart run scripts/release.dart` — commits a pending pubspec bump, tags `vX.Y.Z` from the current
+   `pubspec.yaml` version, and pushes the tag. Works from any cwd (resolves the root from the script
+   path). It NEVER runs `dart pub publish` locally (mirrors `-js`'s `scripts/publish.ts`, which only
+   tags + pushes so CI publishes).
 3. The pushed `v*` tag triggers `.github/workflows/publish.yml`, which publishes to pub.dev.
+
+**Scripting runtime — Dart only; Bun for TypeScript (owner, 2026-10-22).** Bun is the workspace's
+TypeScript script runner. This repo's scripts are in its own language (Dart), so releasing needs
+only the Dart SDK: no Bun, Node or `package.json`. The bash twins `scripts/bump.sh` and `scripts/release.sh`
+were deleted on 2026-10-22 (they broke the workspace "no shell scripts" rule). `release.dart` is a
+behavior-for-behavior port of `release.sh`, dry-run verified in a throwaway repo: it committed the
+bump and tagged, then failed cleanly at `push`. The `-js` references above stay valid: `-js` runs
+its `scripts/*.ts` under Bun (it has `package.json` + `bun.lock`) and kept the file names.
+New scripts here are Dart. If a TypeScript script is ever unavoidable, it runs under `bun`.
 
 **`.github/workflows/publish.yml` — `run:`-only (Actions policy).** The policy under which this was
 built (pre-transfer, owner `jrmarcum`) permitted only `jrmarcum`-owned actions. The `synapticforge1`
@@ -207,7 +216,7 @@ tree is `lib/`, `test/` (incl. `*.wasm`/`*.wit` fixtures), `README.md`, `CHANGEL
 ### First publish (2026-06-24) — DONE via CI
 
 `dart pub publish --dry-run` (Dart 3.12.2) had previously validated 0-warnings/exit-0. The real
-publish was performed by the CI flow: `scripts/release.sh` committed the `.pubignore` change, tagged
+publish was performed by the CI flow: `scripts/release.sh` (since replaced by `release.dart`) committed the `.pubignore` change, tagged
 `v0.1.0` from `pubspec.yaml`, and pushed `main` + the tag; `.github/workflows/publish.yml` ran to
 **success** and uploaded to pub.dev (verified: `GET pub.dev/api/packages/universal_wasm_loader` →
 200, `"version":"0.1.0"`). Both bump scripts remain verified for patch/minor/major + bad-kind

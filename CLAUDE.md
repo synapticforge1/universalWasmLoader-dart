@@ -26,6 +26,8 @@ the companion `.wit`, apply the Canonical ABI, and return a typed handle. Intend
 - Build / test / run: `dart pub get`, `dart test`, `dart run`; format with `dart format`, lint with
   `dart analyze`.
 - Package manager / registry: **pub.dev**; package version lives in `pubspec.yaml` (`version:`).
+- Scripts: **Dart only** (`dart run scripts/bump.dart`, `dart run scripts/release.dart`); no shell
+  scripts. A TypeScript script, if ever needed, runs under `bun` (2026-10-22).
 - OS: Windows 11 (development environment).
 
 ## WASM runtime — DECIDED (web now, native later)
