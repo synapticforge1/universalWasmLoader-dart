@@ -22,8 +22,10 @@ jobs:
       # off-limits, this uses a credentials-file approach instead (PUB_DEV_CREDENTIALS
       # secret → pub-credentials.json), then `dart pub publish --force`.
       - name: Checkout
+        # Full history + tags: the compatibility gate compares with the
+        # previous release tag (scripts/compat.dart --release).
         run: |
-          git clone --depth=1 --branch "${{ github.ref_name }}" \
+          git clone --branch "${{ github.ref_name }}" \
             "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" .
 
       - name: Install Dart SDK
@@ -70,6 +72,15 @@ jobs:
           else
             echo "::warning::No Chrome/Chromium on the runner — skipping browser tests."
           fi
+
+      - name: Compatibility gate self-test
+        run: dart run scripts/check_compat_gate.dart
+
+      - name: Compatibility gate (blocking)
+        # Hard gate (H6): the version raise since the previous tag must meet
+        # the surface floor, api-surface.json must be current, and the previous
+        # tag's tests must pass against this lib/ in Chrome for a patch/minor.
+        run: dart run scripts/compat.dart --release
 
       - name: Write pub.dev credentials
         env:
