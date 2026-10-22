@@ -1,3 +1,6 @@
-# Keep workflows LF so they run on Linux CI runners.
-*.yml text eol=lf
-*.yaml text eol=lf
+# LF everywhere (GitHub's convention), in the repo AND in every working tree,
+# regardless of a machine's core.autocrlf setting.
+* text=auto eol=lf
+
+# Binary fixtures: never touch their bytes.
+*.wasm binary
