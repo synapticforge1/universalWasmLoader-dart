@@ -18,6 +18,12 @@ reflogs expired, `git gc --prune=now`, `fsck` clean, `maintenance.strategy gc` s
 never included it. GitHub keeps serving the old commits by hash until its GC (removal is a GitHub
 Support request, the owner's).
 
+**Pushed 2026-10-26** (owner: "try the force push"): `main` and the three tags with
+`--force-with-lease` on each old value; all accepted; `ls-remote` read back equal to local; every
+pushed commit re-scanned (`-a`), 0 hits. ⚠️ **A moved `v*` tag re-runs `publish.yml`:** three runs,
+each failing at "Publish to pub.dev" (version exists) with "Create GitHub Release" skipped; pub.dev
+unchanged. Any future tag rewrite here does the same.
+
 **Map (old → new), oldest first; tags marked:**
 
 | old | new | |

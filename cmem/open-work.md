@@ -2,27 +2,28 @@
 
 **State (2026-10-26):** 0.2.1 is the latest on pub.dev (SPEC 3.0.0 + §10), and `main` = `v0.2.1`
 (`ae231db`, post-purge id) plus memory / fixture-stamp commits only. Every release from here on
-passes the blocking compatibility gate in CI. **The history was rewritten locally on 2026-10-26
-(H19) and is NOT pushed:** `origin` still has the old history until the owner approves the
-force-push.
+passes the blocking compatibility gate in CI. The history was purged of a drive path and
+force-pushed on 2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10-26.md)).
 
 ## Open
 
-- **🗓️ OWNER: force-push the purged history (H19)** — `main` and the tags `v0.1.0`, `v0.2.0`,
-  `v0.2.1`, with lease. ⚠️ `publish.yml` runs on every `v*` tag push, so moving the three tags
-  starts three publish runs; each should stop at `dart pub publish` (the version exists on pub.dev)
-  before "Create GitHub Release". Check first whether GitHub refuses the tag moves (immutable
-  releases refused binaryen-ts's tags, 2026-10-26). After the push: re-scan `origin/*`, delete the
-  backup bundle ([local/environment.md](local/environment.md)), and the GitHub Support request
-  for old commits served by hash is the owner's. Map: [history-map-2026-10-26.md](history-map-2026-10-26.md).
+- **🗓️ OWNER (optional):** GitHub serves the pre-purge commits by hash until its GC; removing them
+  is a GitHub Support request. The private pre-purge bundle may be deleted once you are satisfied
+  ([local/environment.md](local/environment.md)).
 - **S5:** check the two §10 tests against the shared §10 conformance test, once the workspace
   defines one ([testing.md](testing.md)).
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
 
+- **H19 force-pushed 2026-10-26** (owner: "try the force push"): `main` → `0bcd2e9` and the three
+  tags, each with a lease on its old value; GitHub accepted all four (no immutable release);
+  `ls-remote` = local; all 22 pushed commits re-scanned with `-a`, 0 hits. The tag moves re-ran
+  `publish.yml` three times (runs 40383568732 for v0.1.0, 40383568400 for v0.2.1, and one for v0.2.0): every step green up to
+  **"Publish to pub.dev" — failed (version exists)**, "Create GitHub Release" skipped; pub.dev
+  read back unchanged (latest 0.2.1, original publish dates). Expected and harmless, as predicted.
 - **Workspace letters, 2026-10-26** (owner: "perform H19 and C11/H7 and C8"; one commit after the
-  purge): **H19** history purged of the drive path, locally, verified pair by pair
+  purge): **H19** history purged of the drive path, verified pair by pair
   ([history-map-2026-10-26.md](history-map-2026-10-26.md)); **H18 / H25 §3(c)** `CLAUDE.md` clean at
   HEAD; **H16** `maintenance.strategy gc` (1 pack); **H22 / H25 §3(d)** path test recorded
   ([working-rules.md](working-rules.md) § Privacy); **H24 + C8 + H27** ★ block re-copied (5.2,
