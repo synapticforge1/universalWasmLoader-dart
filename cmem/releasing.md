@@ -41,11 +41,11 @@ logging in again. The secret contains a refresh token and survived the org trans
 
 Scripts here are **Dart only** (`dart run scripts/...`); releasing needs only the Dart SDK. Bun is
 the workspace's TypeScript runner; a TypeScript script, if ever unavoidable, runs under `bun`. The
-bash twins `bump.sh` / `release.sh` were deleted in `a75b167` (no shell scripts, workspace rule).
+bash twins `bump.sh` / `release.sh` were deleted in `3883d61` (no shell scripts, workspace rule).
 
 ## Release history (summaries; git is the archive)
 
-- **0.2.1 (2026-10-22), tag → `1fc0757`.** No library change: the README §10 correction, the stamped
+- **0.2.1 (2026-10-22), tag → `ae231db`.** No library change: the README §10 correction, the stamped
   H7 fixtures, the Breaking Changes table. It is the first release through the compatibility gate:
   locally, `bump.dart patch` was allowed at floor patch with the previous-tag tests 9/9. In CI, run
   39803257031 passed every step, including the three blocking ones (fixtures, gate self-test,
@@ -53,10 +53,10 @@ bash twins `bump.sh` / `release.sh` were deleted in `a75b167` (no shell scripts,
   green in Chrome on the runner. Published at 15:17Z, and pub.dev's README now shows the corrected
   §10 text.
 
-- **0.2.0 (2026-10-22), tag → `f550a37`.** SPEC §10 (`985039f`); no API change. The first real run of
+- **0.2.0 (2026-10-22), tag → `5f1c294`.** SPEC §10 (`6579312`); no API change. The first real run of
   `release.dart`, and the first release after the org transfer. CI run 39797726044 was green on every
   step, the browser tests really ran on the runner, and it published at 14:41Z.
-- **0.1.0 (2026-06-24), tag → `edd1e46`.** First publish, through CI (then `release.sh`); the archive
+- **0.1.0 (2026-06-24), tag → `4376a8a`.** First publish, through CI (then `release.sh`); the archive
   is 12 KB after `.pubignore`. `jrmarcum` is the pub.dev uploader; there is no verified publisher.
 - ⚠️ The `ubuntu-latest` label moves to Ubuntu 26 from 2026-10-19. If a future run breaks, check the
   apt Dart install first.

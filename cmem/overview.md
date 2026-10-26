@@ -8,7 +8,7 @@ not here.
 ## Repository home — `synapticforge1` organization (recorded 2026-10-20)
 
 **https://github.com/synapticforge1/universalWasmLoader-dart**: transferred from the `jrmarcum` user
-account to the owner-controlled `synapticforge1` organization (`4a9b9b7`). The old `jrmarcum/...` URL
+account to the owner-controlled `synapticforge1` organization (`733f54d`). The old `jrmarcum/...` URL
 only works through GitHub's redirect, which dies if a repo of that name is ever created under
 `jrmarcum`. So `origin`, `pubspec.yaml` `repository:` and README all name the new owner. The
 reference loader moved too: `synapticforge1/universalWasmLoader-js`. pub.dev ownership is a
@@ -51,7 +51,7 @@ Mirrors the reference loader in idiomatic Dart; the authoritative list is the ge
 the host reads the little-endian pair, decodes UTF-8, then calls **`cabi_post_<name>(retPtr)`** to
 release it. String PARAMS flatten to `(ptr, len)` written via `cabi_realloc(0,0,1,len)`. Numerics
 pass through; `bool` is `1/0` ↔ `true/false`. There was never a legacy out-parameter path here.
-**SPEC §10** (producer model) since 0.2.0 (`985039f`): the WASI-P1 shim is always attached, and a
+**SPEC §10** (producer model) since 0.2.0 (`6579312`): the WASI-P1 shim is always attached, and a
 reactor module's `_initialize` is called once after instantiation.
 
 ## File layout

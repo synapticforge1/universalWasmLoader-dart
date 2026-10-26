@@ -23,5 +23,6 @@ The **"update the project memory"** and **"look for code issues"** triggers are 
 - **Tests are browser-only:** `dart test -p chrome` (plain `dart test` runs nothing useful).
 - **Scripts are Dart; no shell scripts, no Python, no heredocs; `git commit -F <file>`.** LF
   everywhere (`.gitattributes`).
-- Git outside Claude Code may need: `git config --global --add safe.directory
-  <repo-root>`
+- **No personal information in any committed file** — no drive or user-profile path; use
+  `<repo-root>` or a relative path (the path test: `cmem/working-rules.md` § Privacy). Git's
+  `safe.directory` for the workspace folder is in the machine's system config (2026-10-26).

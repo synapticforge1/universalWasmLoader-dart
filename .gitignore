@@ -14,3 +14,6 @@ doc/api/
 
 # Claude Code per-machine settings (local permission allowlists).
 .claude/settings.local.json
+
+# Private, machine-local memory (paths, backups): never committed.
+cmem/local/

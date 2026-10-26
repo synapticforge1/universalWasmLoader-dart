@@ -13,13 +13,26 @@ booleans, strings (canonical return), imports with host callbacks, `createSingle
 §10.2 a WASI-using library (`wasi_io_50`, `logAndDouble(21)==42`, which loads only because the shim
 supplies `fd_write`). The gate self-test passes 31/31; the fixture check covers 12 files.
 
-## Reference fixtures (H7 / S4, done 2026-10-22, `bc53669`)
+## Reference fixtures (H7 / S4, done 2026-10-22, `c7b37f6`)
 
-`test/fixtures/` is a **verbatim copy of `-js`'s `tests/` set**, including `fixtures.json`, the stamp:
-wasmtk `f50c8e4` (`v2.0.3-64-gf50c8e419a0`) and a sha256 per file (12 files). It was copied from
-`-js` `1cfb863`. Before the copy, only `strings_50.wasm`, `wasi_io_50.wasm` (other bytes) and
-`init_check.wat` (missing) were off. The workspace note "dart's four match" was wrong about
-`strings_50`.
+`test/fixtures/` is a **verbatim copy of `-js`'s `tests/` set** (copied from `-js` `1cfb863`,
+2026-10-22), with `fixtures.json`, the stamp: the wasmtk commit and a sha256 per file (12 files).
+Before that copy, only `strings_50.wasm`, `wasi_io_50.wasm` (other bytes) and `init_check.wat`
+(missing) were off. The workspace note "dart's four match" was wrong about `strings_50`.
+
+**Re-stamped 2026-10-26 (C11 / H7), ahead of `-js`:** wasmtk rewrote its history twice (2026-10-23,
+2026-10-26), so the stamped `f50c8e4` (`jrmarcum/wasmtk`) no longer exists; through wasmtk's two maps
+it is `84b3e180eba` → **`4a5c3cf668d`** (`v2.0.3-64-g4a5c3cf6`, same commit time, on
+`synapticforge1/wasmtk` `origin/main`). Measured, not assumed: a scratch clone at `4a5c3cf668d`
+(clean before and after), `-js`'s `regen-fixtures.ts` steps run by hand (its script writes into
+`-js`), → all five source blob ids equal the stamp's, and **all 10 rebuilt `.wasm` / `.wit` files are
+sha256-identical** to the stamp and to `test/fixtures/` (Deno 2.9.8). Inverted: one byte appended to a
+rebuilt file was refused. So only `generator.repository` / `commit` / `describe` changed; the new
+`fixtures.json` was WRITTEN by the same comparison script in the generator's format
+(`JSON.stringify(…, null, 2)` + LF), and differs from the old in exactly those three lines.
+`-js` has not re-stamped yet (still `f50c8e4`, measured 2026-10-26); its regeneration from
+`4a5c3cf668d` with the URL fixed (H17 part 3, `regen-fixtures.ts:80`) should produce this file byte
+for byte — that is the check when it does.
 
 **To refresh when `-js` regenerates:** copy every file its `tests/fixtures.json` lists, plus that file,
 into `test/fixtures/`; run `check_fixtures.dart` and the browser suite. Never edit a fixture by hand;
