@@ -7,9 +7,38 @@ force-pushed on 2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10
 
 ## Open
 
-- **🗓️ OWNER (optional):** GitHub serves the pre-purge commits by hash until its GC; removing them
-  is a GitHub Support request. The private pre-purge bundle may be deleted once you are satisfied
-  ([local/environment.md](local/environment.md)).
+- **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
+  19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
+  requests, so no other ref holds them. Send from the account that administers the org, at
+  support.github.com → "Remove data from a repository" (sensitive data removal). The letter, ready
+  to paste:
+
+  > **Subject:** Sensitive data removal — synapticforge1/universalWasmLoader-dart
+  >
+  > Hello. I administer the organization `synapticforge1`. The public repository
+  > `synapticforge1/universalWasmLoader-dart` had a local filesystem path of my development machine
+  > committed in `CLAUDE.md`. I have rewritten the repository's history to remove it and
+  > force-pushed every branch and tag on 2026-10-26 (`main` is now `0bcd2e9`; tags `v0.1.0`,
+  > `v0.2.0`, `v0.2.1` moved). The repository has no forks and no pull requests.
+  >
+  > The old commits are still reachable by hash. Please remove the cached views of these
+  > dereferenced commits and run garbage collection on the repository:
+  >
+  > `c7884df40f035dd7436f346b1fd4d9d91f3c0c9f`, `e75c046114925726b201d7e3f09a0c20e58602da`,
+  > `6aa6fb00428705d4460ea9b47eaa36d8ad7ba2f3`, `b62fdeb17040d480d9ae55d6c69b6e501018c00e`,
+  > `edd1e46fe97bb409357a8b72e9532bb06c4da23c`, `2429345dce607c932688076e5f791e5eb6b8dc8e`,
+  > `985039ff17aa09de74436c9df3c37feee9e029d0`, `4a9b9b746f1a6669eb693b5345d48f5574853d61`,
+  > `df673dcebf348d2cea0d82fb6477997e6f4faf89`, `99edd4090a88ac01463faa5f987dbf98ea7be1d8`,
+  > `a75b167429ef3995ec8bed59a43d2dc988e1fd33`, `e5529e490ba5324ab11208233d441e682f27cb50`,
+  > `f550a3772929c63803f172367ba3f4be1af3233c`, `b9f4e9ceb3c8926f12281d1afec538f4a7165de4`,
+  > `11dacb970fd6d1093e37d450d0485aa0700519b6`, `bc53669f37fdb48ebd448c59a041e15fbc533e25`,
+  > `36378fdecf66445ce54d39c2ec756c50b3c29373`, `1fc075753797023db6efe5200ccd0f7c7357980b`,
+  > `256c699cd1a2036f6c9cbdcef6906499e4d332f6`
+  >
+  > The sensitive content is the file `CLAUDE.md` in each of them. Thank you.
+
+  Close this item when Support confirms; then `https://github.com/synapticforge1/universalWasmLoader-dart/commit/256c699`
+  should return 404 (that is the check).
 - **S5:** check the two §10 tests against the shared §10 conformance test, once the workspace
   defines one ([testing.md](testing.md)).
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).

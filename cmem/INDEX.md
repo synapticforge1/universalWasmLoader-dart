@@ -46,4 +46,4 @@ ones, and keep every gate in [testing.md](testing.md) green (`dart test -p chrom
 | [working-rules.md](working-rules.md) | The checklist: git/release, tooling hard rules, LF 🔒, privacy and the path test 🔒, memory rules |
 | [best-practices.md](best-practices.md) | This repo's own rules (§ L) + the workspace ★ rules, a stamped verbatim copy (re-copied 2026-10-26) |
 | [history-map-2026-10-26.md](history-map-2026-10-26.md) | The H19 path purge: what leaked, how it was rewritten and verified, the old → new commit map |
-| `local/` (gitignored) | Private machine notes and the pre-purge backup bundle; never committed |
+| `local/` (gitignored) | Private machine notes (`environment.md`); never committed |

@@ -8,7 +8,7 @@ every commit and tag message, found only that line; the `%APPDATA%` hits in `REA
 pub.dev archive ever carried it.
 
 **What was done (owner: "perform H19", 2026-10-26):** a pre-purge bundle of every ref (private,
-`cmem/local/backups/`); `git filter-branch --index-filter` over `--branches --tags` that rewrote
+`cmem/local/backups/`; deleted after the verified push, owner, 2026-10-26); `git filter-branch --index-filter` over `--branches --tags` that rewrote
 ONLY the `CLAUDE.md` blob, replacing the path with `<repo-root>`; author / committer (the allowed
 maintainer address) untouched. **Verified pair by pair:** each new commit's header (author,
 committer, dates) and message are identical to the old one, and `git diff old new` is exactly
