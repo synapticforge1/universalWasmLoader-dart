@@ -4,9 +4,12 @@
 > [`cmem/open-work.md`](cmem/open-work.md). This file is only a pointer and holds no authoritative
 > knowledge.
 
-> **At session start, read `../../cmem/handoffs.md` for letters addressed to this repo.** The workspace
-> session (`../../cmem/INDEX.md`) reviews across the sibling repos and reports there; nothing is ever
-> written into this repo from outside. (owner directive, 2026-09-20)
+> **At session start, read `../../cmem/workspace-correspondence.md` first** — every row addressed
+> to this repo, and every row touching the work at hand, before starting it — **then the letter it
+> points to in `../../cmem/handoffs.md`.** Answer in this repo's memory and write the commit into
+> the row; only the item's creator closes it. The workspace session (`../../cmem/INDEX.md`) reviews
+> across the sibling repos and reports there; nothing is ever written into this repo from outside.
+> (owner directive, 2026-09-20; the ledger first, owner 2026-10-26)
 
 The Dart port of the Universal WASM Loader: `universal_wasm_loader` on pub.dev, web backend
 (`dart:js_interop`), implementing `-js`'s `SPEC.md` 3.0.0 including §10. GitHub:

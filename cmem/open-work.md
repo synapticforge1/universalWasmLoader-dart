@@ -32,8 +32,8 @@ force-push.
   ([testing.md](testing.md)). Record-only: **H15** conforms (Dart scripts since `3883d61`); **H20**
   pub.dev published 0.2.1 after the org move; **H28** the email exception widened
   ([working-rules.md](working-rules.md) § Privacy; this repo keeps the address on commits only).
-  The `CLAUDE.md` pull line still names `handoffs.md` only — its edit is owner-directed per the
-  ledger (INDEX and working-rules already read the ledger first).
+  **The pull line** (owner: "fix the handoff notation", 2026-10-26): `CLAUDE.md` now reads
+  `workspace-correspondence.md` first, then `handoffs.md`, as INDEX and working-rules do.
 - **0.2.1 released (2026-10-22, owner: "bump and push"), tag → `ae231db`:** README §10 correction,
   stamped fixtures, and the first release through the gate ([releasing.md](releasing.md)).
 - **H6 (2026-10-22, `41b9fda`):** SemVer gate ([compat-gate.md](compat-gate.md)); ★ block copied
