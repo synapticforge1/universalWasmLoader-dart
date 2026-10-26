@@ -4,7 +4,7 @@
     "tool": "wasmtk modc",
     "repository": "https://github.com/synapticforge1/wasmtk",
     "commit": "4a5c3cf668da2c5c6e2cde444851773b5d4f4a08",
-    "describe": "v2.0.3-64-g4a5c3cf6",
+    "describe": "v2.0.3-64-g4a5c3cf",
     "committed": "2026-10-09T20:13:12-04:00",
     "command": "deno run -A --no-lock --config deno.json main.ts modc tests/module/bindgen_fixtures/<name>.ts -n <name>.wasm"
   },

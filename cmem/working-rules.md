@@ -38,7 +38,9 @@ with `git config`.
   machine (`%APPDATA%\dart\pub-credentials.json` in the README is one). A scan hit is a CANDIDATE
   judged by this test; do not scrub convention paths.
 - **The one email exception:** the maintainer contact address in the manifest field a registry
-  reads, and as the git commit author / committer address (owner, 2026-10-26). Nowhere else.
+  reads, as the git commit author / committer address, and in ONE committed `cmem/` contact note
+  (owner, 2026-10-26, H28). Nowhere else; not repeated. This repo keeps it on commits only
+  (`pubspec.yaml` has no email field; there is no contact note).
 - Private facts go in the gitignored `cmem/local/` (machine notes, the pre-purge backup bundle).
 - **Scan before committing, binaries included** (`-a`: a compiler's debug output embeds the build
   machine's paths): `git grep -n -a -i -E '[A-Za-z]:[\\/]+(Programs|Users|scoop|tools)[\\/]'`.

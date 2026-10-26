@@ -20,19 +20,19 @@ supplies `fd_write`). The gate self-test passes 31/31; the fixture check covers 
 Before that copy, only `strings_50.wasm`, `wasi_io_50.wasm` (other bytes) and `init_check.wat`
 (missing) were off. The workspace note "dart's four match" was wrong about `strings_50`.
 
-**Re-stamped 2026-10-26 (C11 / H7), ahead of `-js`:** wasmtk rewrote its history twice (2026-10-23,
+**Re-stamped 2026-10-26 (C11 / H7):** wasmtk rewrote its history twice (2026-10-23,
 2026-10-26), so the stamped `f50c8e4` (`jrmarcum/wasmtk`) no longer exists; through wasmtk's two maps
 it is `84b3e180eba` → **`4a5c3cf668d`** (`v2.0.3-64-g4a5c3cf6`, same commit time, on
 `synapticforge1/wasmtk` `origin/main`). Measured, not assumed: a scratch clone at `4a5c3cf668d`
 (clean before and after), `-js`'s `regen-fixtures.ts` steps run by hand (its script writes into
 `-js`), → all five source blob ids equal the stamp's, and **all 10 rebuilt `.wasm` / `.wit` files are
 sha256-identical** to the stamp and to `test/fixtures/` (Deno 2.9.8). Inverted: one byte appended to a
-rebuilt file was refused. So only `generator.repository` / `commit` / `describe` changed; the new
-`fixtures.json` was WRITTEN by the same comparison script in the generator's format
-(`JSON.stringify(…, null, 2)` + LF), and differs from the old in exactly those three lines.
-`-js` has not re-stamped yet (still `f50c8e4`, measured 2026-10-26); its regeneration from
-`4a5c3cf668d` with the URL fixed (H17 part 3, `regen-fixtures.ts:80`) should produce this file byte
-for byte — that is the check when it does.
+rebuilt file was refused. So only `generator.repository` / `commit` / `describe` changed. `-js`
+re-stamped the same day (`36aa661`, on its `origin/main`, released in 1.1.2): every fixture blob of
+its set equals ours (12 / 12), and its `fixtures.json` differed from the one our script wrote in ONE
+line, `describe` — `g4a5c3cf` there, `g4a5c3cf6` here: `git describe` abbreviates to a length that
+depends on the clone, so the field is not reproducible across clones. **`-js`'s `fixtures.json` was
+then copied verbatim** (the rule above), so `test/fixtures/` is byte-identical to `-js` `36aa661`.
 
 **To refresh when `-js` regenerates:** copy every file its `tests/fixtures.json` lists, plus that file,
 into `test/fixtures/`; run `check_fixtures.dart` and the browser suite. Never edit a fixture by hand;

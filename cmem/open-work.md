@@ -15,8 +15,6 @@ force-push.
   releases refused binaryen-ts's tags, 2026-10-26). After the push: re-scan `origin/*`, delete the
   backup bundle ([local/environment.md](local/environment.md)), and the GitHub Support request
   for old commits served by hash is the owner's. Map: [history-map-2026-10-26.md](history-map-2026-10-26.md).
-- **When `-js` re-stamps from `4a5c3cf668d`:** its `fixtures.json` should equal ours byte for byte
-  (we re-stamped first, [testing.md](testing.md)); diff it, then return to plain copying.
 - **S5:** check the two §10 tests against the shared §10 conformance test, once the workspace
   defines one ([testing.md](testing.md)).
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
@@ -30,9 +28,12 @@ force-push.
   ([working-rules.md](working-rules.md) § Privacy); **H24 + C8 + H27** ★ block re-copied (5.2,
   6.1) and re-stamped `Copied from synapticforge1/…` after a 28 = 28 / 0-difference text check
   ([best-practices.md](best-practices.md)); **C11 / H7** fixtures re-stamped to wasmtk
-  `4a5c3cf668d`, bytes proven identical by rebuilding ([testing.md](testing.md)). Record-only:
-  **H15** conforms (Dart scripts since `3883d61`); **H20** pub.dev published 0.2.1 after the org
-  move.
+  `4a5c3cf668d`, bytes proven identical by rebuilding, then `-js` `36aa661`'s stamp copied verbatim
+  ([testing.md](testing.md)). Record-only: **H15** conforms (Dart scripts since `3883d61`); **H20**
+  pub.dev published 0.2.1 after the org move; **H28** the email exception widened
+  ([working-rules.md](working-rules.md) § Privacy; this repo keeps the address on commits only).
+  The `CLAUDE.md` pull line still names `handoffs.md` only — its edit is owner-directed per the
+  ledger (INDEX and working-rules already read the ledger first).
 - **0.2.1 released (2026-10-22, owner: "bump and push"), tag → `ae231db`:** README §10 correction,
   stamped fixtures, and the first release through the gate ([releasing.md](releasing.md)).
 - **H6 (2026-10-22, `41b9fda`):** SemVer gate ([compat-gate.md](compat-gate.md)); ★ block copied
