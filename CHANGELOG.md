@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 **Breaking (SPEC 4.0.0): failures are loud.** See the README's "What fails, and how" table and the
 Breaking Changes row.
