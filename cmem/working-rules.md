@@ -6,6 +6,10 @@ The workspace floor is `../../cmem/working-rules.md`; these are what bite in thi
 
 - **Nothing is pushed, tagged or published unless the owner says so.** A `v*` tag publishes to
   pub.dev irreversibly ([releasing.md](releasing.md)).
+- 🔒 **No third-party package code runs in a CI job that holds the pub.dev credentials** (owner,
+  2026-11-07, workspace C30). Checks that execute dependencies (`analyze`, `dart test`, `dart run
+  scripts/...`) belong in `checks`, which has no secret. `publish` runs only the SDK's `dart pub
+  publish` and `gh`. A new check goes into `checks`, never into `publish` ([releasing.md](releasing.md)).
 - Commit messages go through a file: `git commit -F <file>`. Never a heredoc.
 - An intended API change re-baselines `api-surface.json` in its OWN commit, stating the reason,
   before the bump commit ([compat-gate.md](compat-gate.md)).

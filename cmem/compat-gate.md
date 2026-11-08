@@ -20,7 +20,8 @@ gate"): "backward compatible" is a gate result, never a judgment made at bump ti
 name each public library in `lib/` (not `lib/src/`) exports. It is read through `package:analyzer`
 (14.6, `exportNamespace.definedNames2`): one key per symbol and one per public member (constructors
 as `.new`, setters as `name=`), valued by the analyzer's `displayString()`. Members get a `static `
-prefix, top-level functions do not. An element kind it cannot key THROWS. 34 keys on 2026-10-22.
+prefix, top-level functions do not. An element kind it cannot key THROWS. 34 keys on 2026-10-22;
+44 on 2026-11-07 (`aa1af8d`, SPEC 4.0.0's `LoadOptions` / `LoadCancelToken`).
 
 **The floor:** removed or changed → major; added → minor; nothing → patch; the SPEC version moves it
 by its own level (lowered → major). ⚠️ It errs high, on purpose. A changed DEFAULT value and a
@@ -33,7 +34,8 @@ untouched; `dart pub get`; `dart test -p chrome --reporter expanded`. Counts are
 OUTPUT, and green needs exit 0, at least one pass and no failures. On RED the last 15 lines of
 output are printed. The worktree is always removed.
 
-**Consumers (Rule 3, second half):** no known pub.dev package depends on this one; nothing to run.
+**Consumers (Rule 3, second half):** no pub.dev package depends on this one (re-measured
+2026-11-07: pub.dev search `dependency:universal_wasm_loader` → 0 packages); nothing to run.
 
 ## Inverted end to end, 2026-10-22 (a scratch clone; nothing in the repo was broken)
 
@@ -53,6 +55,12 @@ The previous-tag tests stayed green for the removal: no test calls `kebabToCamel
 **First real use (2026-10-22, 0.2.1):** `bump.dart patch` was allowed at floor patch, with the
 previous-tag tests 9/9. In CI, the self-test and `compat --release` passed on the runner (run
 39803257031), so the CI half has now run for real, not only in the scratch clone.
+
+**First real MAJOR floor (2026-11-07, 0.3.0):** floor major (SPEC 3.0.0 → 4.0.0 and three changed
+signatures). `bump.dart minor` was allowed under Rule 6, because the README row was present, and
+it stamped `_next release_` → `0.3.0`. v0.2.1's tests were 9/9 on the new code (they never
+exercise a refusal, so the behaviour break is invisible to Rule 3, as expected). `compat --release`
+then passed in CI run 42436175882.
 
 ## Traps met building it
 

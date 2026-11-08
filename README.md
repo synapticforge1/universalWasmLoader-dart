@@ -154,8 +154,12 @@ minor may stand in for a major, but it needs a row labelled `_next release_` in 
 Changes table above. `bump.dart` replaces that label with the version, and does the same for the
 CHANGELOG's Unreleased heading. An intended API change re-baselines `api-surface.json` in its own commit first.
 
-Pushing a `v*` tag runs `.github/workflows/publish.yml`, which installs the Dart SDK, runs the
-fixture check and the compatibility gate (both blocking), and runs `dart pub publish` on pub.dev.
+Pushing a `v*` tag runs `.github/workflows/publish.yml` in two jobs. **`checks`** has a read-only
+token and no secrets. It installs the Dart SDK and dependencies and runs analysis, the browser
+tests, the fixture check and the compatibility gate (both blocking). **`publish`** runs only after
+`checks` passes, on a fresh runner. It runs only the Dart SDK (`dart pub publish`) and `gh`, so no
+dependency's code ever runs where the pub.dev credentials are on disk. The credentials are deleted
+afterwards. Both jobs refuse to run if the tag has moved off the commit that triggered the run.
 
 > **`run:`-only workflow.** The GitHub Actions policy permits only first-party (owner-owned) actions, so
 > the publish workflow uses **no `uses:` steps** — checkout is `git clone`, the SDK is installed via

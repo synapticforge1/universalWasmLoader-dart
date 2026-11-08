@@ -12,7 +12,7 @@
 > (owner directive, 2026-09-20; the ledger first, owner 2026-10-26)
 
 The Dart port of the Universal WASM Loader: `universal_wasm_loader` on pub.dev, web backend
-(`dart:js_interop`), implementing `-js`'s `SPEC.md` 3.0.0 including §10. GitHub:
+(`dart:js_interop`), implementing `-js`'s `SPEC.md` 4.0.0 including §10. GitHub:
 **https://github.com/synapticforge1/universalWasmLoader-dart**.
 
 The **"update the project memory"** and **"look for code issues"** triggers are defined in

@@ -62,7 +62,7 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
   was 0.3.0's, green.
 
 - **C29 / H29 → SPEC 4.0.0 (2026-11-07, owner: "make the requested fixes"), `aa1af8d` + `5e24ae3`,
-  local only.** What 0.2.1 did, READ from its code (`bf049de`), not run one by one: a `.wit`
+  released in 0.3.0 (entry above).** What 0.2.1 did, READ from its code (`bf049de`), not run one by one: a `.wit`
   answering 500 or a network error → raw exports, silently (the H29 S10 half); `parseWit` read `u32`
   as `s32` and skipped a malformed parameter; a missing callback → `0`, a `null` / `true` callback
   result → encoded as `0` / `1`; `add(1)` passed a `null`; `greet(42)` sent `"42"`; an `s64`
