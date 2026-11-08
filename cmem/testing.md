@@ -3,7 +3,7 @@
 | Gate | Command | Sees | Blind to |
 | --- | --- | --- | --- |
 | Static | `dart analyze`; `dart format --output=none --set-exit-if-changed .` | types, lints, formatting | behaviour |
-| Browser suite | `dart test -p chrome` (`@TestOn('browser')`; needs Chrome) | the SPEC §8 fixtures, lifecycle, both §10 tests | WIT/ABI shapes not in the fixtures |
+| Browser suite | `dart test -p chrome` (`@TestOn('browser')`; needs Chrome) | the SPEC §8 fixtures and its 4.0.0 Refusals table, lifecycle, both §10 tests, the http cases (local server), s64 | WIT/ABI shapes not in the fixtures or the test server; a callback whose arity is wrong |
 | Fixtures | `dart run scripts/check_fixtures.dart` | `test/fixtures/` bytes vs the `-js` stamp | whether the stamp itself is current with `-js` |
 | Compat gate | `dart run scripts/compat.dart` (+ `check_compat_gate.dart`) | API surface, SPEC version, previous tag's tests | behaviour the previous tests never exercised |
 
@@ -12,6 +12,25 @@ booleans, strings (canonical return), imports with host callbacks, `createSingle
 `InstancePool.run`, 2 concurrent pooled runs, §10.1 `_initialize` (no-WIT raw path, `init_check`),
 §10.2 a WASI-using library (`wasi_io_50`, `logAndDouble(21)==42`, which loads only because the shim
 supplies `fd_write`). The gate self-test passes 31/31; the fixture check covers 12 files.
+
+**Counts (2026-11-07, Dart 3.13.7, `5e24ae3`):** browser suite **37/37** = the 9 above + 28 for SPEC
+4.0.0: host-callback refusals (none, one missing, six wrong results, an `async` one), typed-call
+arguments (count, kind, range, explicit `null`, through `call` and `function`), strict parsing (9
+faults + the valid forms), and the http group. **Inverted:** the 14 non-http refusal tests run red
+on v0.2.1's `lib/` (a scratch worktree; the http group cannot compile against the old API); a
+mutant of the new code with the `.wit`-500 fallback and no timer turned exactly the 3 matching http
+tests red. Gate: v0.2.1's own tests 9/9 on the new code.
+
+## The http test server (`test/support/http_server.dart`, 2026-11-07)
+
+Started by `spawnHybridUri` in the Dart VM beside the browser suite (loopback, port 0, CORS `*`).
+URLs are `/<mode>/<tag>/<file>`: the mode picks the `.wit` and `.wasm` behaviour (a status, `hang`,
+`partial` body, a custom `.wit` such as `u32wit`, or the hand-built `add64` s64 module); the tag keeps
+each test's request counts apart; `GET /__counts` returns them, which is how "one request per file"
+and "the `.wasm` is never fetched" are checked. `hybridMain` takes a `dynamic` channel, so
+`stream_channel` need not become a direct dev-dependency. The hang tests use a 200–300 ms limit; a
+test that loses its limit waits for `package:test`'s own 30 s timeout instead (the mutant run took
+1 min for that reason).
 
 ## Reference fixtures (H7 / S4, done 2026-10-22, `c7b37f6`)
 

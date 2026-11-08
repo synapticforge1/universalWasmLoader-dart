@@ -34,18 +34,35 @@ loader CANNOT substitute on native (`dart:ffi` is unavailable on web; no JS engi
 ## API surface
 
 Mirrors the reference loader in idiomatic Dart; the authoritative list is the generated
-`api-surface.json` (34 keys on 2026-10-22, unchanged since 0.1.0; see [compat-gate.md](compat-gate.md)):
-- `wasmImport(path, {hostCallbacks})` → a `Future<ModuleExports>`; auto-detects the companion `.wit`,
-  applies the Canonical ABI, falls back to raw exports if there is no `.wit`. Supports the `@N`
-  version-pin suffix (checked against the module's exported `version` global).
-- `createSingleton(path, {hostCallbacks})` — caches the load; same instance every call.
-- `InstancePool(path, {hostCallbacks, size})` — `acquire` / `release` / `run` over N instances.
+`api-surface.json` (44 keys on 2026-11-07, `aa1af8d`; 34 from 0.1.0 to 0.2.1; see [compat-gate.md](compat-gate.md)):
+- `wasmImport(path, {hostCallbacks, options})` → a `Future<ModuleExports>`; auto-detects the
+  companion `.wit`, applies the Canonical ABI; raw exports ONLY when the `.wit` is absent (404 / 410,
+  or no `.wasm` suffix). Supports the `@N` version-pin suffix (checked against the module's exported
+  `version` global).
+- `createSingleton(path, {hostCallbacks, options})` — caches the load; same instance every call.
+- `InstancePool(path, {hostCallbacks, size, options})` — `acquire` / `release` / `run` over N instances.
+- `LoadOptions({timeout = 30 s, cancel})` (`timeout: null` = no limit) and `LoadCancelToken`
+  (`cancel([reason])`, `isCancelled`, `reason`). Backend-neutral on purpose: no `AbortSignal` in the
+  API, so the native backend can take the same options (the 🔒 dual-backend decision above).
 - `ModuleExports` — `call` / `function` / `has` / `names` / `rawExports`.
-- The WIT parser: `parseWit`, `ParsedWit`, `WitFunc`, `WitParam`, `kebabToCamel`, `kebabToWasmImportKey`.
+- The WIT parser: `parseWit` (throws `FormatException` since 4.0.0), `ParsedWit`, `WitFunc`,
+  `WitParam`, `kebabToCamel`, `kebabToWasmImportKey`.
 
-## Conformance — SPEC 3.0.0
+## Conformance — SPEC 4.0.0 (on `main` since `5e24ae3`, 2026-11-07; NOT released — 0.2.1 is 3.0.0)
 
-`SPEC.md` (in `-js`) is at **v3.0.0 (2026-06-15)**; README declares it as `SPEC.md` **v3.0.0**, which
+**4.0.0 (workspace C29):** every refusal in -js `SPEC.md` § 8 "Refusals" is a test. Error types,
+chosen to be idiomatic Dart (JS throws `TypeError` / `Error`): `.wit` HTTP / network failure and
+`.wasm` HTTP error → `StateError` naming the URL; `.wit` parse fault → `FormatException` naming the
+`.wit`; missing callback, wrong callback result, `Future` result, wrong typed-call argument →
+`ArgumentError`; string-result import → `UnsupportedError`; WIT export absent from the module →
+`StateError`; time limit → `TimeoutException`; cancellation → the token's reason. Dart domains:
+`s32` an `int` in range, `s64` an `int` or `BigInt` (crosses as a JS `BigInt`, returns `BigInt`),
+`f32` / `f64` a `num`, `bool` a `bool`, `string` a `String`. On the web `2.0 is int` is true, the
+same as JS's `Number.isInteger`. Beyond the SPEC (silent-wrong cases found while porting): a WIT
+using strings on a module without `memory` / `cabi_realloc` fails the load instead of a null-check
+crash at call time; a `.wasm` URL with a query no longer fetched the `.wasm` itself as the `.wit`.
+
+`SPEC.md` (in `-js`) is at **v4.0.0 (2026-11-07)**; README declares it as `SPEC.md` **v4.0.0**, which
 `surface.dart` reads, so a SPEC move shows in the gate's floor. String/aggregate RETURNS use the
 **canonical callee-allocated** convention: the export returns an i32 pointer to a `[ptr, len]` pair;
 the host reads the little-endian pair, decodes UTF-8, then calls **`cabi_post_<name>(retPtr)`** to
@@ -65,9 +82,12 @@ reactor module's `_initialize` is called once after instantiation.
   `WasiMemRef`): `fd_write`→`console.log`/`console.error`, `proc_exit`, `random_get`,
   `clock_time_get`, environ/args, `fd_close`/`fd_fdstat_get`/`fd_seek`. i64 writes are split into two
   i32 words (`ByteData.setInt64` is unsupported on the web).
-- `lib/src/wasm_interop.dart` — `@JS` bindings: `WebAssembly.instantiate`, `fetch`, `Reflect.get/set`,
-  memory views (`memoryBytes`, `readI32`).
-- `lib/src/wit_parser.dart` — `parseWit` + `WitFunc`/`WitParam`/`ParsedWit` + kebab helpers.
+- `lib/src/wasm_interop.dart` — `@JS` bindings: `WebAssembly.instantiate`, `fetch` (with a
+  `RequestInit`), `AbortController`, `Reflect.get/set`, memory views (`memoryBytes`, `readI32`).
+  ⚠️ An external extension-type member cannot be torn off (`ctl.abort` as a value fails dart2js
+  compilation, though `dart analyze` passes); wrap it in a closure.
+- `lib/src/wit_parser.dart` — the strict `parseWit` (SPEC § 2 grammar) + `WitFunc`/`WitParam`/
+  `ParsedWit` + kebab helpers.
 - `test/` — see [testing.md](testing.md). `scripts/` — see [releasing.md](releasing.md) and
   [compat-gate.md](compat-gate.md). `api-surface.json` — the committed surface snapshot.
 - `pubspec.yaml` — SDK `^3.4.0`; dep `web`; dev-deps `test`, `lints`, `crypto` (fixture check),
@@ -84,6 +104,8 @@ reactor module's `_initialize` is called once after instantiation.
 WASM calls each `env` import with the **flattened ABI arity** (a `string` param is two i32s). The
 Dart closure handed to `.toJS` must tolerate that exact count — a fixed-arity closure throws
 `NoSuchMethodError` when invoked with fewer args. The import wrappers use **optional positional
-params** (8 slots) so any arity 0..8 is accepted. Export calls use `Function.prototype.apply`
+params** (8 slots) so any arity 0..8 is accepted. `ModuleExports.function(name)` returns a closure
+whose 8 optional slots default to a private const sentinel, so an explicit `null` argument is told
+apart from an omitted one for the count check. Export calls use `Function.prototype.apply`
 (bound via `@JS('Function.prototype.apply.call')`) to pass an arbitrary arg count, since
 `callAsFunction` is fixed at 4.

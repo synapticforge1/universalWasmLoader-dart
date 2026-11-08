@@ -1,11 +1,32 @@
 # Open work — the ONE list (status lives here and nowhere else)
 
-**State (2026-10-26):** 0.2.1 is the latest on pub.dev (SPEC 3.0.0 + §10), and `main` = `v0.2.1`
-(`ae231db`, post-purge id) plus memory / fixture-stamp commits only. Every release from here on
-passes the blocking compatibility gate in CI. The history was purged of a drive path and
-force-pushed on 2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10-26.md)).
+**State (2026-11-07):** 0.2.1 is the latest on pub.dev (SPEC 3.0.0 + §10). Local `main` carries
+**SPEC 4.0.0** (`aa1af8d` surface re-baseline, `5e24ae3` the code; workspace C29), NOT pushed and NOT
+released. `origin/main` = `bf049de`. Every release passes the blocking compatibility gate in CI. The
+history was purged of a drive path and force-pushed on 2026-10-26 (H19,
+[history-map-2026-10-26.md](history-map-2026-10-26.md)).
 
 ## Open
+
+- **🗓️ OWNER: push and release SPEC 4.0.0 as 0.3.0.** The version decision: the gate's floor against
+  v0.2.1 is **major** (SPEC 3.0.0 → 4.0.0, and `wasmImport` / `createSingleton` / `InstancePool.new`
+  changed by the new `options` parameter), so under pre-1.0 Rule 6 it is **0.3.0, a minor**, which
+  the README `_next release_` Breaking Changes row allows. Measured 2026-11-07: `compat.dart` floor
+  major, v0.2.1's tests 9/9 on the new code, surface current; `check_compat_gate` 31/31; fixtures
+  12/12 (unchanged, as SPEC 4.0.0 says); `dart analyze` and `dart format` clean; `dart pub publish
+  --dry-run` warns only about uncommitted files. On "release": `git push`, then `dart run
+  scripts/bump.dart minor` (stamps README + CHANGELOG) and `dart run scripts/release.dart`.
+- **🗓️ OWNER: C30 (S3D's release-workflow findings) applied to this repo — record-only, NOT
+  changed.** Reasoned here, not measured: `publish.yml` has no `id-token: write` (credentials-file
+  publishing, [releasing.md](releasing.md)) and no `concurrency:` block, so findings (1) and (2) do
+  not apply as written. **The same hazard in this repo's own form:** the ONE `publish` job runs
+  third-party package code (`dart pub get` then `dart analyze`, the fixture check, `dart test`, the
+  gate, i.e. `analyzer`, `test`, `crypto`, `web` and their dependencies) and later writes
+  `PUB_DEV_CREDENTIALS` (a pub.dev refresh token) to disk in the same job, with a `contents: write`
+  token throughout. A process left running by an earlier step could read the credentials file. A
+  fix would split the checks into a token-less job and publish from a job that runs only the SDK.
+  That changes the release path, so it waits for the owner. Finding (3) (`bun fmt`) does not apply
+  (no Bun here).
 
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
@@ -44,6 +65,16 @@ force-pushed on 2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
+
+- **C29 / H29 → SPEC 4.0.0 (2026-11-07, owner: "make the requested fixes"), `aa1af8d` + `5e24ae3`,
+  local only.** What 0.2.1 did, READ from its code (`bf049de`), not run one by one: a `.wit`
+  answering 500 or a network error → raw exports, silently (the H29 S10 half); `parseWit` read `u32`
+  as `s32` and skipped a malformed parameter; a missing callback → `0`, a `null` / `true` callback
+  result → encoded as `0` / `1`; `add(1)` passed a `null`; `greet(42)` sent `"42"`; an `s64`
+  argument went in as a JS number, which an i64 parameter refuses; no time limit at all. MEASURED:
+  the 14 new non-http refusal tests are red on 0.2.1's `lib/` ([testing.md](testing.md)). All now refused
+  per -js `SPEC.md` 4.0.0 §§ 2, 4, 11 (the details in [overview.md](overview.md) § Conformance; the
+  tests in [testing.md](testing.md)).
 
 - **H19 force-pushed 2026-10-26** (owner: "try the force push"): `main` → `0bcd2e9` and the three
   tags, each with a lease on its old value; GitHub accepted all four (no immutable release);
