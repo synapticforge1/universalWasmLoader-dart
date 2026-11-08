@@ -48,7 +48,7 @@ Mirrors the reference loader in idiomatic Dart; the authoritative list is the ge
 - The WIT parser: `parseWit` (throws `FormatException` since 4.0.0), `ParsedWit`, `WitFunc`,
   `WitParam`, `kebabToCamel`, `kebabToWasmImportKey`.
 
-## Conformance — SPEC 4.0.0 (on `main` since `5e24ae3`, 2026-11-07; NOT released — 0.2.1 is 3.0.0)
+## Conformance — SPEC 4.0.0 (`5e24ae3`; released in 0.3.0, 2026-11-07; 0.2.x is 3.0.0)
 
 **4.0.0 (workspace C29):** every refusal in -js `SPEC.md` § 8 "Refusals" is a test. Error types,
 chosen to be idiomatic Dart (JS throws `TypeError` / `Error`): `.wit` HTTP / network failure and

@@ -1,27 +1,14 @@
 # Open work — the ONE list (status lives here and nowhere else)
 
-**State (2026-11-07):** 0.2.1 is the latest on pub.dev (SPEC 3.0.0 + §10). Local `main` carries
-**SPEC 4.0.0** (`aa1af8d` surface re-baseline, `5e24ae3` the code; workspace C29), NOT pushed and NOT
-released. `origin/main` = `bf049de`. Every release passes the blocking compatibility gate in CI. The
+**State (2026-11-07):** **0.3.0 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
+tag `v0.3.0` → `1fe255f` = `origin/main` (read back with `ls-remote`). Every release passes the
+blocking compatibility gate in CI, and since 0.3.0 the credentials live only in a job that runs no
+package code (C30, [releasing.md](releasing.md)). The
 history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 [history-map-2026-10-26.md](history-map-2026-10-26.md)).
 
 ## Open
 
-- **🗓️ OWNER: push and release SPEC 4.0.0 as 0.3.0.** The version decision: the gate's floor against
-  v0.2.1 is **major** (SPEC 3.0.0 → 4.0.0, and `wasmImport` / `createSingleton` / `InstancePool.new`
-  changed by the new `options` parameter), so under pre-1.0 Rule 6 it is **0.3.0, a minor**, which
-  the README `_next release_` Breaking Changes row allows. Measured 2026-11-07: `compat.dart` floor
-  major, v0.2.1's tests 9/9 on the new code, surface current; `check_compat_gate` 31/31; fixtures
-  12/12 (unchanged, as SPEC 4.0.0 says); `dart analyze` and `dart format` clean; `dart pub publish
-  --dry-run` warns only about uncommitted files. On "release": `git push`, then `dart run
-  scripts/bump.dart minor` (stamps README + CHANGELOG) and `dart run scripts/release.dart`.
-- **C30 → `publish.yml` split into two jobs (2026-11-07, owner's go-ahead), first used by 0.3.0.**
-  Findings (1) and (2) did not apply as written (no `id-token: write`, no `concurrency:`), and (3)
-  did not apply (no Bun). But the ONE job ran third-party package code and then wrote
-  `PUB_DEV_CREDENTIALS` on the same runner. Now `checks` (read-only token, no secret) is separate
-  from `publish` (SDK and `gh` only); see [releasing.md](releasing.md). The first real run is the
-  check. Until it is green, this item stays open.
 
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
@@ -60,6 +47,19 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
+
+- **0.3.0 released (2026-11-07, owner: "yes release as 0.3.0"), tag → `1fe255f`.** Version
+  decision: the gate's floor against v0.2.1 was **major** (SPEC 3.0.0 → 4.0.0; `wasmImport` /
+  `createSingleton` / `InstancePool.new` changed by `options`), so a pre-1.0 Rule 6 **minor** with
+  the Breaking Changes row. `bump.dart minor` allowed it (v0.2.1's tests 9/9 on the new code). CI
+  run 42436175882 green in both jobs ([releasing.md](releasing.md)); pub.dev read back: latest
+  0.3.0, published 2026-11-08T01:55Z (UTC); GitHub release `v0.3.0` exists.
+- **C30 → `publish.yml` split into two jobs (`cb7bc26`, owner: "I agree with splitting into two
+  jobs if it will maintain better privacy").** Findings (1) and (2) did not apply as written (no
+  `id-token: write`, no `concurrency:`), and (3) did not apply (no Bun). The one job used to run
+  third-party package code and then write `PUB_DEV_CREDENTIALS` on the same runner. Now `checks`
+  (read-only token, no secret) is separate from `publish` (SDK and `gh` only). Its first real run
+  was 0.3.0's, green.
 
 - **C29 / H29 → SPEC 4.0.0 (2026-11-07, owner: "make the requested fixes"), `aa1af8d` + `5e24ae3`,
   local only.** What 0.2.1 did, READ from its code (`bf049de`), not run one by one: a `.wit`

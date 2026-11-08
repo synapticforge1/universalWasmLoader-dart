@@ -57,6 +57,13 @@ bash twins `bump.sh` / `release.sh` were deleted in `3883d61` (no shell scripts,
 
 ## Release history (summaries; git is the archive)
 
+- **0.3.0 (2026-11-07), tag → `1fe255f`.** SPEC 4.0.0 (`5e24ae3`), a breaking pre-1.0 minor
+  ([compat-gate.md](compat-gate.md) Rule 6, README row 0.3.0). The first run of the two-job
+  workflow: run 42436175882, `checks` green (gate blocking steps included), then `publish` green
+  (credentials written, published, removed, GitHub release created). The browser-test step is
+  best-effort and its log was not read (the logs need a signed-in download), so whether Chrome ran
+  on the runner is unconfirmed; locally 37/37. pub.dev read back: latest 0.3.0.
+
 - **0.2.1 (2026-10-22), tag → `ae231db`.** No library change: the README §10 correction, the stamped
   H7 fixtures, the Breaking Changes table. It is the first release through the compatibility gate:
   locally, `bump.dart patch` was allowed at floor patch with the previous-tag tests 9/9. In CI, run
