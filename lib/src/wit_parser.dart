@@ -71,66 +71,115 @@ String kebabToCamel(String name) {
 /// (e.g. `env-mul` -> `env_mul`).
 String kebabToWasmImportKey(String name) => name.replaceAll('-', '_');
 
-String _parseWitType(String raw) {
-  switch (raw.trim()) {
-    case 's32':
-    case 's64':
-    case 'f32':
-    case 'f64':
-    case 'bool':
-    case 'string':
-      return raw.trim();
-    default:
-      return 's32';
+/// The WIT types this loader translates (SPEC §4); any other type is an error.
+const _witTypes = {'s32', 's64', 'f32', 'f64', 'bool', 'string'};
+
+/// A WIT identifier: kebab-case words of letters and digits.
+final _ident = RegExp(r'^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$');
+
+/// One `import` / `export` statement of a world body, without its `;`.
+final _funcStmt = RegExp(
+    r'^(import|export)\s+([^\s:]+)\s*:\s*func\s*\(([^()]*)\)\s*(?:->\s*(\S+))?$');
+
+Never _fault(String what) => throw FormatException(what);
+
+String _parseWitType(String raw, String where) {
+  final t = raw.trim();
+  if (!_witTypes.contains(t)) {
+    _fault('unsupported WIT type "$t" in $where '
+        '(supported: ${_witTypes.join(', ')})');
   }
+  return t;
 }
 
-List<WitParam> _parseWitParams(String raw) {
-  if (raw.trim().isEmpty) return const [];
+List<WitParam> _parseWitParams(String raw, String fnLabel) {
+  // A trailing comma is valid WIT: `func(a: s32,)`.
+  final parts = raw.split(',').map((p) => p.trim()).toList();
+  if (parts.isNotEmpty && parts.last.isEmpty) parts.removeLast();
   final out = <WitParam>[];
-  for (final part in raw.split(',')) {
-    final colon = part.indexOf(':');
-    if (colon < 0) continue;
-    final rawName = part.substring(0, colon).trim();
-    final type = _parseWitType(part.substring(colon + 1));
+  final seen = <String>{};
+  for (final part in parts) {
+    final m = RegExp(r'^([^:\s]+)\s*:\s*(\S+)$').firstMatch(part);
+    if (m == null || !_ident.hasMatch(m[1]!)) {
+      _fault('malformed parameter "$part" in $fnLabel (expected "name: type")');
+    }
+    final rawName = m[1]!;
+    if (!seen.add(rawName)) {
+      _fault('duplicate parameter "$rawName" in $fnLabel');
+    }
+    final type = _parseWitType(m[2]!, '$fnLabel, parameter $rawName');
     out.add(WitParam(kebabToCamel(rawName), type));
   }
   return out;
 }
 
-List<WitFunc> _parseWitFuncs(String body, String keyword) {
-  final funcs = <WitFunc>[];
-  final re = RegExp(
-    '\\b$keyword\\s+([\\w-]+)\\s*:\\s*func\\s*\\(([^)]*)\\)(?:\\s*->\\s*([\\w-]+))?\\s*;',
-  );
-  for (final m in re.allMatches(body)) {
-    final name = m[1]!;
-    final params = _parseWitParams(m[2] ?? '');
-    final result = m[3] != null ? _parseWitType(m[3]!) : null;
-    funcs.add(WitFunc(
+/// Parses a WIT source string in the subset `wasmtk` writes: an optional
+/// `package` line and one `world` holding only `import` / `export` function
+/// statements, with `//` line comments.
+///
+/// Anything else — a malformed statement or parameter, a type outside
+/// `s32 s64 f32 f64 bool string`, a duplicate name, text outside the world —
+/// throws a [FormatException] naming it (SPEC 4.0.0 §2): a `.wit` is never
+/// read loosely.
+ParsedWit parseWit(String src) {
+  final code = src.replaceFirst(RegExp('^﻿'), '').replaceAll(
+        RegExp(r'//[^\n]*'),
+        '',
+      );
+
+  var rest = code.trim();
+  var packageName = '';
+  final pkg = RegExp(r'^package\s+([^\s;]+)\s*;').firstMatch(rest);
+  if (pkg != null) {
+    packageName = pkg[1]!;
+    rest = rest.substring(pkg[0]!.length).trim();
+  }
+
+  final world = RegExp(r'^world\s+([^\s{]+)\s*\{([^{}]*)\}$').firstMatch(rest);
+  if (world == null) {
+    final what = rest.isEmpty
+        ? 'it is empty'
+        : 'expected one "world <name> { ... }" block, found: '
+            '${rest.length > 60 ? rest.substring(0, 60) : rest}';
+    _fault('not a WIT world: $what');
+  }
+  final worldName = world[1]!;
+  if (!_ident.hasMatch(worldName)) _fault('malformed world name "$worldName"');
+
+  final imports = <WitFunc>[];
+  final exports = <WitFunc>[];
+  final statements = world[2]!.split(';').map((s) => s.trim()).toList();
+  final last = statements.removeLast();
+  if (last.isNotEmpty) {
+    _fault('unterminated WIT statement (missing ";"): $last');
+  }
+  for (final stmt in statements) {
+    final m = _funcStmt.firstMatch(stmt);
+    if (m == null) {
+      _fault('unsupported or malformed WIT statement: '
+          '${stmt.replaceAll(RegExp(r'\s+'), ' ')}');
+    }
+    final keyword = m[1]!;
+    final name = m[2]!;
+    final fnLabel = '$keyword $name';
+    if (!_ident.hasMatch(name)) _fault('malformed function name in $fnLabel');
+    final list = keyword == 'import' ? imports : exports;
+    if (list.any((f) => f.name == name)) _fault('duplicate $fnLabel');
+    final params = _parseWitParams(m[3]!, fnLabel);
+    final result =
+        m[4] != null ? _parseWitType(m[4]!, '$fnLabel, result') : null;
+    list.add(WitFunc(
       name: name,
       tsName: kebabToCamel(name),
       params: params,
       result: result,
     ));
   }
-  return funcs;
-}
-
-/// Parses a WIT source string produced by `wasmtk`.
-ParsedWit parseWit(String src) {
-  final pkgMatch = RegExp(r'package\s+([\w:/-]+)\s*;').firstMatch(src);
-  final packageName = pkgMatch?[1] ?? '';
-
-  final worldMatch =
-      RegExp(r'world\s+([\w-]+)\s*\{([\s\S]*)\}').firstMatch(src);
-  final worldName = worldMatch?[1] ?? '';
-  final worldBody = worldMatch?[2] ?? '';
 
   return ParsedWit(
     packageName: packageName,
     worldName: worldName,
-    imports: _parseWitFuncs(worldBody, 'import'),
-    exports: _parseWitFuncs(worldBody, 'export'),
+    imports: imports,
+    exports: exports,
   );
 }

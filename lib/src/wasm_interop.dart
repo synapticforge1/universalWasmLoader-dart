@@ -41,9 +41,22 @@ extension type WasmGlobal._(JSObject _) implements JSObject {
   external JSAny? get value;
 }
 
-/// The browser `fetch` function.
+/// The browser `fetch` function; [init] is a `RequestInit` (e.g. `{signal}`).
 @JS('fetch')
-external JSPromise<FetchResponse> fetch(JSString url);
+external JSPromise<FetchResponse> fetch(JSString url, JSObject init);
+
+/// An `AbortController`: its [signal] cancels a `fetch` and its body read.
+@JS('AbortController')
+extension type AbortController._(JSObject _) implements JSObject {
+  /// `new AbortController()`.
+  external factory AbortController();
+
+  /// The `AbortSignal` to pass as `RequestInit.signal`.
+  external JSObject get signal;
+
+  /// Aborts every fetch holding [signal].
+  external void abort();
+}
 
 /// A `Response` from `fetch`.
 extension type FetchResponse._(JSObject _) implements JSObject {

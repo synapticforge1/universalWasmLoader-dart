@@ -2,7 +2,7 @@
 ///
 /// Auto-detects the companion `.wit`, applies the Canonical ABI (wasmtime
 /// profile), and returns a typed [ModuleExports] handle. Implements the
-/// cross-language `SPEC.md` v3.0.0 over the browser's native `WebAssembly` API
+/// cross-language `SPEC.md` v4.0.0 over the browser's native `WebAssembly` API
 /// via `dart:js_interop`.
 ///
 /// ```dart
@@ -11,7 +11,13 @@
 /// ```
 library;
 
-export 'src/loader.dart' show wasmImport, createSingleton, InstancePool;
+export 'src/loader.dart'
+    show
+        wasmImport,
+        createSingleton,
+        InstancePool,
+        LoadOptions,
+        LoadCancelToken;
 export 'src/abi.dart' show ModuleExports;
 export 'src/wit_parser.dart'
     show

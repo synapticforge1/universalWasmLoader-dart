@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+**Breaking (SPEC 4.0.0): failures are loud.** See the README's "What fails, and how" table and the
+Breaking Changes row.
+
+- Only an absent `.wit` (HTTP 404 / 410, or a path not ending in `.wasm`) loads raw exports. Any
+  other `.wit` failure fails the load before the `.wasm` is fetched. The `.wit` URL now drops the
+  `.wasm` URL's query and fragment.
+- `parseWit` is strict: a malformed statement or parameter, an unsupported type (`u32` was read as
+  `s32`), a duplicate name or text outside the one `world` throws a `FormatException`.
+- Every WIT import needs a host callback, checked at load. A callback's return value must match the
+  import's WIT result, and a `Future` is refused. An import returning `string` is refused at load.
+- A WIT export the module does not export fails the load.
+- Typed calls check the argument count and each argument's kind; nothing is coerced. `s64` now
+  passes a real 64-bit integer (`int` or `BigInt`) and returns a `BigInt`; it used to fail inside
+  the engine.
+- New `options: LoadOptions(timeout:, cancel:)` on `wasmImport`, `createSingleton` and
+  `InstancePool`: a 30 s default limit on each fetch (`TimeoutException`), and a `LoadCancelToken`.
+
 ## 0.2.1
 
 - Test fixtures are now byte-identical copies of the shared reference set (stamped in

@@ -2,7 +2,7 @@
 
 Universal WASM loader for Dart — the Dart port of the
 [Universal WASM Loader](https://github.com/synapticforge1/universalWasmLoader-js), implementing the
-cross-language `SPEC.md` **v3.0.0**.
+cross-language `SPEC.md` **v4.0.0**.
 
 Load a WebAssembly "DLL" the way the reference loader does: auto-detect the companion `.wit`, apply
 the Canonical ABI (wasmtime profile), and get back a typed handle.
@@ -34,7 +34,7 @@ Future<void> main() async {
   final s = await wasmImport('strings_50.wasm');
   print(s.call('greet', ['World']));   // "Hello, World!"
 
-  // Host import callbacks, keyed by camelCase WIT name.
+  // Host import callbacks, keyed by camelCase WIT name: one for every WIT import.
   final i = await wasmImport('imports_50.wasm', hostCallbacks: {
     'envMul': (num a, num b) => a * b,
     'envAdd': (num a, num b) => a + b,
@@ -43,8 +43,34 @@ Future<void> main() async {
 
   // Version pinning (SPEC §3): ./mod.wasm@2 checks the module's `version` global.
   // final v = await wasmImport('mod.wasm@2');
+
+  // A 5 s limit per fetch instead of the default 30 s, and a cancel token.
+  final token = LoadCancelToken();
+  final f = await wasmImport('https://example.com/mod.wasm',
+      options: LoadOptions(timeout: const Duration(seconds: 5), cancel: token));
 }
 ```
+
+### What fails, and how (SPEC 4.0.0)
+
+The loader never guesses. Each of these is an error, not a default value:
+
+| Situation | Error |
+| --- | --- |
+| The `.wit` answers anything but 2xx, 404 or 410, or the network fails | `StateError` naming the URL (before the `.wasm` is fetched) |
+| The `.wit` does not parse, or uses a type outside `s32 s64 f32 f64 bool string` | `FormatException` naming the `.wit` and the fault |
+| A WIT import has no host callback | `ArgumentError` naming every missing one, at load |
+| A WIT import returns `string` | `UnsupportedError`, at load |
+| A WIT export is missing from the module | `StateError` naming it, at load |
+| The `.wasm` answers an HTTP error | `StateError` naming the status and URL (one request) |
+| A fetch takes longer than `options.timeout` (default 30 s; `null` = no limit) | `TimeoutException` naming the URL and the limit |
+| `options.cancel` is cancelled | the reason given to `cancel` (else a `StateError`) |
+| A typed call has the wrong number of arguments, or one outside its type | `ArgumentError` naming the export and the parameter |
+| A host callback returns a value outside its WIT result, or a `Future` | `ArgumentError` naming the callback, reaching the export's caller |
+
+Only an absent `.wit` (HTTP 404 / 410, or a path that does not end in `.wasm`) gives raw exports.
+Typed arguments are checked, never coerced: `s32` takes an `int` in the 32-bit range, `s64` an `int`
+or a `BigInt` (and returns a `BigInt`), `f32` / `f64` a `num`, `bool` a `bool`, `string` a `String`.
 
 ### Instance lifecycle
 
@@ -76,6 +102,7 @@ after instantiation; don't call it yourself.
 
 | Version | What changed | How to migrate |
 | --- | --- | --- |
+| _next release_ | SPEC 4.0.0: loads and calls that 0.2.x accepted silently now fail (table above): a `.wit` that answers an HTTP error or does not parse, a missing host callback, a callback result of the wrong kind, a typed-call argument of the wrong count or kind, an `s64` value (now a `BigInt` result). `wasmImport`, `createSingleton` and `InstancePool` take a new `options` parameter (30 s default fetch limit). `parseWit` throws `FormatException`. | Pass a callback for every WIT import that returns its WIT result type; pass `int` / `num` / `bool` / `String` arguments that match the WIT exactly; fix or remove a malformed `.wit` (a server must answer 404 for an absent one). Use `LoadOptions(timeout: null)` for a fetch that may take over 30 s. |
 | 0.2.0 | A module's exported `_initialize` is now called automatically after instantiation (behaviour, not API). | Remove any manual call to `_initialize`; calling it again initializes the module twice. |
 
 From the release after 0.2.0 on, every release is checked against the previous one by
@@ -93,7 +120,9 @@ dart run scripts/check_fixtures.dart
 
 Tests run against the shared reference fixtures in `test/fixtures/` (`math_50`, `booleans_50`,
 `strings_50`, `imports_50`, plus the §10 fixtures `wasi_io_50` and `init_check`), covering the
-SPEC §8 suite, the lifecycle scenarios, and §10. The fixtures are byte-identical copies of the
+SPEC §8 suite with its 4.0.0 Refusals table, the lifecycle scenarios, and §10. The HTTP cases
+(status codes, a server that never answers) use a local test server started by the suite
+(`test/support/http_server.dart`). The fixtures are byte-identical copies of the
 reference loader's set, built by `wasmtk modc`. `test/fixtures/fixtures.json` stamps the wasmtk
 commit and each file's sha256, and `scripts/check_fixtures.dart` verifies them against it.
 
