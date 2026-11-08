@@ -25,12 +25,24 @@ BEFORE bumping. Pre-flight worth running: `dart analyze`, `dart format`, `dart t
 Built under the pre-transfer policy, which permitted only `jrmarcum`-owned actions: ANY third-party
 `uses:` step (`actions/checkout`, `dart-lang/setup-dart`, the pub.dev OIDC reusable workflow) caused
 a `startup_failure`. So every step is a plain `run:`. Under `synapticforge1` this workflow has run
-green (0.2.0); third-party `uses:` steps have not been tried there and nothing needs them. Steps:
-full `git clone --branch <tag>` (history and tags: the gate needs the previous tag) → Dart from the
-official apt repo → `pub get` → `analyze` → **fixture check (blocking)** → best-effort
-`dart test -p chrome` (warns, does not block) → **gate self-test (blocking)** → **`compat.dart
---release` (blocking)** → write `PUB_DEV_CREDENTIALS` to `pub-credentials.json` (all candidate
-paths) → `dart pub publish --force` → `gh release create`.
+green (0.2.0); third-party `uses:` steps have not been tried there and nothing needs them.
+
+**Two jobs since 2026-11-07 (workspace C30; owner: "I agree with splitting into two jobs if it will
+maintain better privacy").** The rule: no third-party package code runs in a job that sees the
+pub.dev credentials.
+- **`checks`** (`contents: read`, no secret): full `git clone --branch <tag>` WITHOUT a token (the
+  repo is public, so no token lands in `.git/config`; history and tags, because the gate needs the
+  previous tag), asserted to equal `github.sha` → Dart from the official apt repo → `pub get` →
+  `analyze` → **fixture check (blocking)** → best-effort `dart test -p chrome` (warns, does not
+  block) → **gate self-test (blocking)** → **`compat.dart --release` (blocking)**.
+- **`publish`** (`needs: checks`; `contents: write`, used only by `gh release`): a fresh runner,
+  shallow tokenless clone asserted to equal `github.sha` (so a moved tag cannot publish untested
+  code) → Dart SDK → write `PUB_DEV_CREDENTIALS` (`umask 077`, all candidate paths) → `dart pub
+  publish --force` (downloads the deps to validate; pub has no install scripts, so none of their
+  code runs) → remove the credentials (`if: always()`) → `gh release create`.
+
+Before 2026-11-07 it was ONE job that ran all the checks and then wrote the credentials on the same
+runner, so a process left behind by a dependency could have read them (reasoned, never observed).
 
 **Why a credentials file, not OIDC:** pub.dev's automated publishing is a third-party reusable
 workflow, which the policy forbade. **Owner setup (one-time, done):** `dart pub login` locally,

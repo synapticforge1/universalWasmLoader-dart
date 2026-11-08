@@ -16,17 +16,12 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
   12/12 (unchanged, as SPEC 4.0.0 says); `dart analyze` and `dart format` clean; `dart pub publish
   --dry-run` warns only about uncommitted files. On "release": `git push`, then `dart run
   scripts/bump.dart minor` (stamps README + CHANGELOG) and `dart run scripts/release.dart`.
-- **🗓️ OWNER: C30 (S3D's release-workflow findings) applied to this repo — record-only, NOT
-  changed.** Reasoned here, not measured: `publish.yml` has no `id-token: write` (credentials-file
-  publishing, [releasing.md](releasing.md)) and no `concurrency:` block, so findings (1) and (2) do
-  not apply as written. **The same hazard in this repo's own form:** the ONE `publish` job runs
-  third-party package code (`dart pub get` then `dart analyze`, the fixture check, `dart test`, the
-  gate, i.e. `analyzer`, `test`, `crypto`, `web` and their dependencies) and later writes
-  `PUB_DEV_CREDENTIALS` (a pub.dev refresh token) to disk in the same job, with a `contents: write`
-  token throughout. A process left running by an earlier step could read the credentials file. A
-  fix would split the checks into a token-less job and publish from a job that runs only the SDK.
-  That changes the release path, so it waits for the owner. Finding (3) (`bun fmt`) does not apply
-  (no Bun here).
+- **C30 → `publish.yml` split into two jobs (2026-11-07, owner's go-ahead), first used by 0.3.0.**
+  Findings (1) and (2) did not apply as written (no `id-token: write`, no `concurrency:`), and (3)
+  did not apply (no Bun). But the ONE job ran third-party package code and then wrote
+  `PUB_DEV_CREDENTIALS` on the same runner. Now `checks` (read-only token, no secret) is separate
+  from `publish` (SDK and `gh` only); see [releasing.md](releasing.md). The first real run is the
+  check. Until it is green, this item stays open.
 
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull

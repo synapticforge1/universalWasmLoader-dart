@@ -5,28 +5,39 @@ on:
     tags:
       - "v*"
 
+# NOTE: The Actions policy only permits first-party (owner-owned) actions.
+# Third-party `uses:` steps (actions/checkout, dart-lang/setup-dart, and the
+# official dart-lang/setup-dart/.github/workflows/publish.yml reusable OIDC
+# workflow) cause a `startup_failure` — the workflow never runs a single step.
+# Every step here MUST therefore be a plain `run:` step: checkout via git
+# clone, install the Dart SDK via run:, and publish via the `dart pub` CLI.
+# Because the official pub.dev OIDC automated-publishing reusable workflow is
+# off-limits, this uses a credentials-file approach instead (PUB_DEV_CREDENTIALS
+# secret → pub-credentials.json), then `dart pub publish --force`.
+#
+# Two jobs, on purpose (workspace C30, owner 2026-11-07): `checks` runs every
+# step that EXECUTES third-party package code (analyze, tests, the gate) with
+# a read-only token and no secret. `publish` runs on a fresh runner and only
+# the Dart SDK and `gh`; it is the only job that sees PUB_DEV_CREDENTIALS, so
+# no dependency's code can run where the credentials are on disk.
+
 jobs:
-  publish:
+  checks:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
-      # NOTE: The Actions policy only permits first-party (owner-owned) actions.
-      # Third-party `uses:` steps (actions/checkout, dart-lang/setup-dart, and the
-      # official dart-lang/setup-dart/.github/workflows/publish.yml reusable OIDC
-      # workflow) cause a `startup_failure` — the workflow never runs a single step.
-      # Every step here MUST therefore be a plain `run:` step: checkout via git
-      # clone, install the Dart SDK via run:, and publish via the `dart pub` CLI.
-      # Because the official pub.dev OIDC automated-publishing reusable workflow is
-      # off-limits, this uses a credentials-file approach instead (PUB_DEV_CREDENTIALS
-      # secret → pub-credentials.json), then `dart pub publish --force`.
-      - name: Checkout
+      - name: Checkout (the tag's commit, no token)
         # Full history + tags: the compatibility gate compares with the
-        # previous release tag (scripts/compat.dart --release).
+        # previous release tag (scripts/compat.dart --release). The repository
+        # is public, so the clone needs no token and none is stored in .git.
         run: |
+          set -euo pipefail
           git clone --branch "${{ github.ref_name }}" \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" .
+            "https://github.com/${{ github.repository }}" .
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}" \
+            || { echo "::error::tag ${{ github.ref_name }} no longer points at ${{ github.sha }}"; exit 1; }
 
       - name: Install Dart SDK
         run: |
@@ -82,6 +93,38 @@ jobs:
         # tag's tests must pass against this lib/ in Chrome for a patch/minor.
         run: dart run scripts/compat.dart --release
 
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only for `gh release create`
+
+    steps:
+      - name: Checkout (the tag's commit, no token)
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "${{ github.ref_name }}" \
+            "https://github.com/${{ github.repository }}" .
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}" \
+            || { echo "::error::tag ${{ github.ref_name }} no longer points at ${{ github.sha }}"; exit 1; }
+
+      - name: Install Dart SDK
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https wget gnupg
+          wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
+            | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
+          echo "deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main" \
+            | sudo tee /etc/apt/sources.list.d/dart_stable.list
+          sudo apt-get update
+          sudo apt-get install -y dart
+          echo "/usr/lib/dart/bin" >> "$GITHUB_PATH"
+
+      # From here on, nothing runs a package's code: `dart pub publish`
+      # downloads the dependencies to validate the package but does not execute
+      # them (pub has no install scripts), and no `dart run` / `dart test` runs.
+
       - name: Write pub.dev credentials
         env:
           PUB_DEV_CREDENTIALS: ${{ secrets.PUB_DEV_CREDENTIALS }}
@@ -96,6 +139,7 @@ jobs:
           # Write to all candidate locations so the path is correct regardless of
           # the runner's default. The file is pub-credentials.json (newer SDKs);
           # older SDKs used credentials.json under $PUB_CACHE — write both names.
+          umask 077
           mkdir -p "$HOME/.config/dart"
           printf '%s' "$PUB_DEV_CREDENTIALS" > "$HOME/.config/dart/pub-credentials.json"
           if [ -n "${XDG_CONFIG_HOME:-}" ]; then
@@ -108,6 +152,12 @@ jobs:
 
       - name: Publish to pub.dev
         run: dart pub publish --force
+
+      - name: Remove pub.dev credentials
+        if: always()
+        run: |
+          rm -f "$HOME/.config/dart/pub-credentials.json" "$HOME/.pub-cache/credentials.json"
+          if [ -n "${XDG_CONFIG_HOME:-}" ]; then rm -f "$XDG_CONFIG_HOME/dart/pub-credentials.json"; fi
 
       - name: Create GitHub Release
         env:
