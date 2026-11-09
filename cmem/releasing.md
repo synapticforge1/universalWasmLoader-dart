@@ -92,8 +92,9 @@ step's exit-code idiom was checked under `bash -e` (0 → skip, 3 → publish, 1
 on GitHub with 0.3.1** (run 42633779743, attempt 1): `pub-has` said "publish", the upload
 succeeded, and `github-release` created Release `v0.3.1` (by `github-actions[bot]`, not a draft,
 notes `v0.3.0...v0.3.1`). The tag stayed `08e24c4`. **Not exercised:** the skip path on a real
-re-run, because nothing failed. **The three-job layout, the body time limit, the post-POST check and
-the pub.dev link (H32 pass) are UNMEASURED on GitHub until the next tag run.**
+re-run, because nothing failed. **The three-job layout, the post-POST check and the pub.dev link
+(H32 pass) were MEASURED by 0.3.2** (run 42656931575; history below). The body time limit is proven
+only by the mock: no real call stalled.
 
 Before 2026-11-07 it was ONE job that ran all the checks and then wrote the credentials on the same
 runner, so a process left behind by a dependency could have read them (reasoned, never observed).
@@ -113,6 +114,15 @@ its notations follow the latest installed Bun. The
 bash twins `bump.sh` / `release.sh` were deleted in `3883d61` (no shell scripts, workspace rule).
 
 ## Release history (summaries; git is the archive)
+
+- **0.3.2 (2026-11-09), tag → `e22927c`.** No library change: the README's three-job text and the
+  H32 release tooling.
+  - `bump.dart patch`: floor patch, v0.3.1's 37 tests green on the current code.
+  - Run 42656931575: `checks` 16:39:12–16:41:03Z, release-script tests green on Linux; `publish`
+    16:41:06–16:41:32Z, with pub.dev's upload at 16:41:29Z; `release` 16:41:34–16:42:00Z, the
+    script fetched alone.
+  - Page `v0.3.2` by `github-actions[bot]`, `published_at` 16:41:58Z, pub.dev link on top, not a
+    draft, `releases/latest`. The tag is unmoved.
 
 - **0.3.1 (2026-11-09, owner: "release"), tag → `08e24c4`.** No library change. It carries the
   README's Releasing text, and it was the first real run of `ci_release.dart` (H30 / C34).

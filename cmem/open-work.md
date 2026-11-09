@@ -1,8 +1,9 @@
 # Open work — the ONE list (status lives here and nowhere else)
 
-**State (2026-11-09):** **0.3.1 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
-tag `v0.3.1` → `08e24c4`. Its library is 0.3.0's (released 2026-11-07, `1fe255f`); 0.3.1 carries
-the README and the release tooling (`scripts/ci_release.dart`, no GitHub CLI). Every release passes the
+**State (2026-11-09):** **0.3.2 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
+tag `v0.3.2` → `e22927c`. Its library is 0.3.0's (released 2026-11-07, `1fe255f`). 0.3.1 and 0.3.2
+carry the README and the release tooling: no GitHub CLI, and since 0.3.2 the Release page comes
+from its own `release` job (H32). Every release passes the
 blocking compatibility gate in CI, and since 0.3.0 the credentials live only in a job that runs no
 package code (C30, [releasing.md](releasing.md)). The
 history was purged of a drive path and force-pushed on 2026-10-26 (H19,
@@ -10,12 +11,6 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 
 ## Open
 
-- **The next `v*` tag run measures the H32 pass** (2026-11-09): the new `release` job (its own
-  runner, `contents: write`, the script fetched alone at `github.sha`), the publish job's
-  read-only token, the whole-call time limit, the post-POST tag check and the pub.dev link in the
-  notes. Proven locally (15 mock cases, 5 mutants), not yet on GitHub. Close this item when a new
-  tag's page reads `author.login` = `github-actions[bot]` with the pub.dev link on top, and write
-  that into ledger row H32.
 
 
 
@@ -56,6 +51,18 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
+
+- **0.3.2 released (2026-11-09, owner: "update the projects memory files, commit, push then
+  release"), tag → `e22927c`;** no library change. The first run of the three-job workflow (H32),
+  run 42656931575, attempt 1, green in every job. Measured:
+  - pub.dev: 0.3.2, uploaded 16:41:29Z;
+  - Release `v0.3.2`: `author.login` = `github-actions[bot]`, published 16:41:58Z in the
+    `release` job (16:41:34–16:42:00Z), after `publish` (16:41:06–16:41:32Z); not a draft;
+    `releases/latest`; the pub.dev link on top of the generated notes;
+  - the tag is unmoved.
+
+  ⚠️ A release's `created_at` is its COMMIT's date (16:39:45Z here), not the page's: read
+  `published_at` to order it against the upload.
 
 - **H32 (the Release page from CI), 2026-11-09** (owner: "review workspace for items needing this
   project's attention and make the requested fixes"). This repo was NOT on the change list (loader-py's
