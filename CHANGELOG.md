@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
 
 - No library changes.
 - README: the Releasing section describes the release workflow as it now runs (checks and publishing
