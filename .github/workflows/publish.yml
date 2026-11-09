@@ -18,7 +18,7 @@ on:
 # Two jobs, on purpose (workspace C30, owner 2026-11-07): `checks` runs every
 # step that EXECUTES third-party package code (analyze, tests, the gate) with
 # a read-only token and no secret. `publish` runs on a fresh runner and only
-# the Dart SDK and `gh`; it is the only job that sees PUB_DEV_CREDENTIALS, so
+# the Dart SDK (with one dart:-only script); it is the only job that sees PUB_DEV_CREDENTIALS, so
 # no dependency's code can run where the credentials are on disk.
 
 jobs:
@@ -97,7 +97,7 @@ jobs:
     needs: checks
     runs-on: ubuntu-latest
     permissions:
-      contents: write # only for `gh release create`
+      contents: write # only for the GitHub Release (POST /releases)
 
     steps:
       - name: Checkout (the tag's commit, no token)
@@ -123,7 +123,13 @@ jobs:
 
       # From here on, nothing runs a package's code: `dart pub publish`
       # downloads the dependencies to validate the package but does not execute
-      # them (pub has no install scripts), and no `dart run` / `dart test` runs.
+      # them (pub has no install scripts), and no `dart test` runs. The one
+      # script, scripts/ci_release.dart, imports only `dart:` libraries and is
+      # run from $RUNNER_TEMP, outside the package, so nothing is resolved.
+      # No GitHub CLI (workspace H30): GitHub is reached through its REST API.
+
+      - name: Stage the release script outside the package
+        run: cp scripts/ci_release.dart "$RUNNER_TEMP/ci_release.dart"
 
       - name: Write pub.dev credentials
         env:
@@ -151,7 +157,20 @@ jobs:
           echo "Credentials written."
 
       - name: Publish to pub.dev
-        run: dart pub publish --force
+        # Skipped when pub.dev already has this version (workspace C34): pub.dev
+        # never takes a version twice, so after a failure LATER in this job a
+        # re-run would otherwise stop here and never reach the GitHub Release.
+        run: |
+          # Actions runs this with `bash -e`, so the exit code is caught with
+          # `|| rc=$?`, never read after a bare failing command.
+          set -euo pipefail
+          rc=0
+          ( cd "$RUNNER_TEMP" && dart run ci_release.dart pub-has "$GITHUB_WORKSPACE/pubspec.yaml" ) || rc=$?
+          case "$rc" in
+            0) echo "Already on pub.dev; nothing to upload." ;;
+            3) dart pub publish --force ;;
+            *) echo "::error::could not tell whether pub.dev has this version (exit $rc)"; exit 1 ;;
+          esac
 
       - name: Remove pub.dev credentials
         if: always()
@@ -159,10 +178,10 @@ jobs:
           rm -f "$HOME/.config/dart/pub-credentials.json" "$HOME/.pub-cache/credentials.json"
           if [ -n "${XDG_CONFIG_HOME:-}" ]; then rm -f "$XDG_CONFIG_HOME/dart/pub-credentials.json"; fi
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (REST API)
+        # Requires the tag to exist and peel to github.sha (POST /releases would
+        # otherwise create a missing tag); an existing release is done, so a
+        # re-run is safe; the new release is read back.
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart github-release
