@@ -67,8 +67,11 @@ another commit → refused, 1; `v9.9.9` → "does not exist", 1. `pub-has`: 0.3.
 with pubspec 0.3.0 → 1; 9.9.9 → 3. Against a mock GitHub (`GITHUB_API_URL`): create → one POST
 (`Bearer`, `generate_release_notes`), then a read-back; a re-run sends no POST; an annotated tag is
 peeled; a 422 POST → 1; `--dry-run` sends no POST; no token → refused before any request. The
-step's exit-code idiom was checked under `bash -e` (0 → skip, 3 → publish, 1 → fail). **UNMEASURED
-on GitHub until the next tag run** (the change landed before a release, as rule 9 asks).
+step's exit-code idiom was checked under `bash -e` (0 → skip, 3 → publish, 1 → fail). **MEASURED
+on GitHub with 0.3.1** (run 42633779743, attempt 1): `pub-has` said "publish", the upload
+succeeded, and `github-release` created Release `v0.3.1` (by `github-actions[bot]`, not a draft,
+notes `v0.3.0...v0.3.1`). The tag stayed `08e24c4`. **Not exercised:** the skip path on a real
+re-run, because nothing failed.
 
 Before 2026-11-07 it was ONE job that ran all the checks and then wrote the credentials on the same
 runner, so a process left behind by a dependency could have read them (reasoned, never observed).
@@ -88,6 +91,12 @@ its notations follow the latest installed Bun. The
 bash twins `bump.sh` / `release.sh` were deleted in `3883d61` (no shell scripts, workspace rule).
 
 ## Release history (summaries; git is the archive)
+
+- **0.3.1 (2026-11-09, owner: "release"), tag → `08e24c4`.** No library change. It carries the
+  README's Releasing text, and it was the first real run of `ci_release.dart` (H30 / C34).
+  `bump.dart patch`: floor patch, v0.3.0's 37 tests green on the current code. Run 42633779743 was
+  green in both jobs. pub.dev read back: latest 0.3.1, published 14:22:27Z. GitHub Release `v0.3.1`
+  was read back through the REST API.
 
 - **0.3.0 (2026-11-07), tag → `1fe255f`.** SPEC 4.0.0 (`5e24ae3`), a breaking pre-1.0 minor
   ([compat-gate.md](compat-gate.md) Rule 6, README row 0.3.0). The first run of the two-job

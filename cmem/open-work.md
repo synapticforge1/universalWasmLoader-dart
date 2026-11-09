@@ -1,9 +1,8 @@
 # Open work — the ONE list (status lives here and nowhere else)
 
-**State (2026-11-07):** **0.3.0 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
-tag `v0.3.0` → `1fe255f`. `main` has moved past the tag with tooling and memory commits only (no
-`lib/` change; 2026-11-09: the GitHub CLI was replaced by `scripts/ci_release.dart`, pushed).
-Every release passes the
+**State (2026-11-09):** **0.3.1 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
+tag `v0.3.1` → `08e24c4`. Its library is 0.3.0's (released 2026-11-07, `1fe255f`); 0.3.1 carries
+the README and the release tooling (`scripts/ci_release.dart`, no GitHub CLI). Every release passes the
 blocking compatibility gate in CI, and since 0.3.0 the credentials live only in a job that runs no
 package code (C30, [releasing.md](releasing.md)). The
 history was purged of a drive path and force-pushed on 2026-10-26 (H19,
@@ -11,12 +10,6 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 
 ## Open
 
-- **The next `v*` tag run measures `scripts/ci_release.dart` on GitHub** (H30 / C34, 2026-11-09).
-  It is proven against the real services (`--dry-run`) and a mock, but not yet in a real run
-  ([releasing.md](releasing.md)). After that run: pub.dev has the version, the GitHub Release
-  exists and is read back through the REST API, and a "Re-run failed jobs" skips the upload. Close
-  this item then. If the Release step fails, the 🗓️ OWNER can either re-run the job (now safe) or
-  create the page in the web UI.
 
 
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
@@ -56,6 +49,11 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
+
+- **0.3.1 released (2026-11-09, owner: "release"), tag → `08e24c4`;** no library change. It was the
+  first real run of `scripts/ci_release.dart`: run 42633779743 green; pub.dev 0.3.1; GitHub Release
+  `v0.3.1` created through the REST API and read back ([releasing.md](releasing.md)). The re-run
+  skip path stays unexercised (nothing failed).
 
 - **Workspace letters, 2026-11-09** (owner: "review workspace for items needing this project's
   attention and make the requested fixes"). **H30 (no GitHub CLI, CI included):** `publish.yml`'s
