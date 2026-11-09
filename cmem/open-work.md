@@ -1,7 +1,9 @@
 # Open work — the ONE list (status lives here and nowhere else)
 
 **State (2026-11-07):** **0.3.0 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
-tag `v0.3.0` → `1fe255f` = `origin/main` (read back with `ls-remote`). Every release passes the
+tag `v0.3.0` → `1fe255f`. `main` has moved past the tag with tooling and memory commits only (no
+`lib/` change; 2026-11-09: the GitHub CLI was replaced by `scripts/ci_release.dart`, pushed).
+Every release passes the
 blocking compatibility gate in CI, and since 0.3.0 the credentials live only in a job that runs no
 package code (C30, [releasing.md](releasing.md)). The
 history was purged of a drive path and force-pushed on 2026-10-26 (H19,
@@ -65,7 +67,8 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
   (`ci_release.dart pub-has`), so a re-run after a failed Release step completes. Findings (2)–(4)
   do not apply: no npm, no setup-deno, no workflow test that reads YAML. **H31 (Bun, record-only):**
   this repo names no Bun version; the rule is recorded. **C31** closed as its creator (the
-  workspace verified it 2026-11-08).
+  workspace verified it 2026-11-08). Commits `a3fd3c1` + `5b31d52`, **pushed 2026-11-09** (owner:
+  "update the project memory files, commit then push"), with this memory update.
 
 - **0.3.0 released (2026-11-07, owner: "yes release as 0.3.0"), tag → `1fe255f`.** Version
   decision: the gate's floor against v0.2.1 was **major** (SPEC 3.0.0 → 4.0.0; `wasmImport` /
