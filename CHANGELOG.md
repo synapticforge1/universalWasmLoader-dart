@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- No library changes.
+- README: the Releasing section describes the release workflow as it now runs (checks and publishing
+  in separate jobs; the publishing job runs only the Dart SDK).
+- Release tooling (not part of the package): the GitHub Release is created through GitHub's REST
+  API, and a re-run skips the pub.dev upload when the version is already there.
+
 ## 0.3.0
 
 **Breaking (SPEC 4.0.0): failures are loud.** See the README's "What fails, and how" table and the
