@@ -9,7 +9,15 @@ The workspace floor is `../../cmem/working-rules.md`; these are what bite in thi
 - 🔒 **No third-party package code runs in a CI job that holds the pub.dev credentials** (owner,
   2026-11-07, workspace C30). Checks that execute dependencies (`analyze`, `dart test`, `dart run
   scripts/...`) belong in `checks`, which has no secret. `publish` runs only the SDK's `dart pub
-  publish` and `gh`. A new check goes into `checks`, never into `publish` ([releasing.md](releasing.md)).
+  publish` and `scripts/ci_release.dart` (`dart:` imports only, run from outside the package). A
+  new check goes into `checks`, never into `publish` ([releasing.md](releasing.md)).
+- 🔒 **No GitHub CLI, locally or in CI** (owner, 2026-11-08; workspace rule 9, letter H30): check
+  GitHub with `git ls-remote origin` or a registry's or GitHub's public REST API. CI reaches GitHub
+  through `scripts/ci_release.dart` with `GITHUB_TOKEN`. A task only the web UI can do (a Release
+  page by hand, a topic, a Support request) is an OWNER item, never "blocked on the CLI". A
+  release-workflow change lands BEFORE a release and is proven by the next real run.
+- **Bun versions** (owner, 2026-11-09; workspace rule 10, letter H31): every Bun notation is the
+  latest installed Bun. This repo names none today ([releasing.md](releasing.md) § Scripting runtime).
 - Commit messages go through a file: `git commit -F <file>`. Never a heredoc.
 - An intended API change re-baselines `api-surface.json` in its OWN commit, stating the reason,
   before the bump commit ([compat-gate.md](compat-gate.md)).

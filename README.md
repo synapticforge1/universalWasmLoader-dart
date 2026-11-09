@@ -157,7 +157,8 @@ CHANGELOG's Unreleased heading. An intended API change re-baselines `api-surface
 Pushing a `v*` tag runs `.github/workflows/publish.yml` in two jobs. **`checks`** has a read-only
 token and no secrets. It installs the Dart SDK and dependencies and runs analysis, the browser
 tests, the fixture check and the compatibility gate (both blocking). **`publish`** runs only after
-`checks` passes, on a fresh runner. It runs only the Dart SDK (`dart pub publish`) and `gh`, so no
+`checks` passes, on a fresh runner. It runs only the Dart SDK (`dart pub publish`, and
+`scripts/ci_release.dart`, which uses only Dart's core libraries and GitHub's REST API), so no
 dependency's code ever runs where the pub.dev credentials are on disk. The credentials are deleted
 afterwards. Both jobs refuse to run if the tag has moved off the commit that triggered the run.
 

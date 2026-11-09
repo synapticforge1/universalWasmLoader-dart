@@ -9,6 +9,13 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 
 ## Open
 
+- **The next `v*` tag run measures `scripts/ci_release.dart` on GitHub** (H30 / C34, 2026-11-09).
+  It is proven against the real services (`--dry-run`) and a mock, but not yet in a real run
+  ([releasing.md](releasing.md)). After that run: pub.dev has the version, the GitHub Release
+  exists and is read back through the REST API, and a "Re-run failed jobs" skips the upload. Close
+  this item then. If the Release step fails, the 🗓️ OWNER can either re-run the job (now safe) or
+  create the page in the web UI.
+
 
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
@@ -48,6 +55,18 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 
 ## Done (summaries with pointers)
 
+- **Workspace letters, 2026-11-09** (owner: "review workspace for items needing this project's
+  attention and make the requested fixes"). **H30 (no GitHub CLI, CI included):** `publish.yml`'s
+  last CLI call (`gh release create`, the letter's `publish.yml:166`) is replaced by
+  `scripts/ci_release.dart github-release`. The rule is recorded in
+  [working-rules.md](working-rules.md); the design, the choice of Dart over Bun, and the
+  measurements are in [releasing.md](releasing.md). **C34 (record-only, finding (1)'s analogue
+  here, fixed):** the publish step skips the upload when pub.dev already has the version
+  (`ci_release.dart pub-has`), so a re-run after a failed Release step completes. Findings (2)–(4)
+  do not apply: no npm, no setup-deno, no workflow test that reads YAML. **H31 (Bun, record-only):**
+  this repo names no Bun version; the rule is recorded. **C31** closed as its creator (the
+  workspace verified it 2026-11-08).
+
 - **0.3.0 released (2026-11-07, owner: "yes release as 0.3.0"), tag → `1fe255f`.** Version
   decision: the gate's floor against v0.2.1 was **major** (SPEC 3.0.0 → 4.0.0; `wasmImport` /
   `createSingleton` / `InstancePool.new` changed by `options`), so a pre-1.0 Rule 6 **minor** with
@@ -58,7 +77,8 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
   jobs if it will maintain better privacy").** Findings (1) and (2) did not apply as written (no
   `id-token: write`, no `concurrency:`), and (3) did not apply (no Bun). The one job used to run
   third-party package code and then write `PUB_DEV_CREDENTIALS` on the same runner. Now `checks`
-  (read-only token, no secret) is separate from `publish` (SDK and `gh` only). Its first real run
+  (read-only token, no secret) is separate from `publish` (SDK only; the GitHub Release went
+  through the CLI until the H30 change of 2026-11-09). Its first real run
   was 0.3.0's, green.
 
 - **C29 / H29 → SPEC 4.0.0 (2026-11-07, owner: "make the requested fixes"), `aa1af8d` + `5e24ae3`,
