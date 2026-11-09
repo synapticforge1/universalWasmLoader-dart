@@ -1,4 +1,4 @@
-// The publish job's two network checks, with no `gh` (workspace H30) and no
+// The publish job's two network checks, with no GitHub CLI (workspace H30) and no
 // package code (workspace C30): this file imports only `dart:` libraries, and
 // CI runs it from a directory OUTSIDE the package, so nothing is resolved or
 // loaded from pub.
