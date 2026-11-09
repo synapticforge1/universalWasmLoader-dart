@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2
 
 - No library changes.
 - README: the Releasing section describes the three-job release workflow.
