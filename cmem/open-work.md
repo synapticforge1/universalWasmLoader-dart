@@ -98,7 +98,8 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
   jobs if it will maintain better privacy").** Findings (1) and (2) did not apply as written (no
   `id-token: write`, no `concurrency:`), and (3) did not apply (no Bun). The one job used to run
   third-party package code and then write `PUB_DEV_CREDENTIALS` on the same runner. Now `checks`
-  (read-only token, no secret) is separate from `publish` (SDK only; the GitHub Release went
+  (read-only token, no secret) is separate from `publish` (SDK only; since the H32 pass of
+  2026-11-09 the page comes from a third job, `release`; before that the GitHub Release went
   through the CLI until the H30 change of 2026-11-09). Its first real run
   was 0.3.0's, green.
 
