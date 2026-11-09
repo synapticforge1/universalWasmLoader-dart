@@ -27,26 +27,33 @@ Built under the pre-transfer policy, which permitted only `jrmarcum`-owned actio
 a `startup_failure`. So every step is a plain `run:`. Under `synapticforge1` this workflow has run
 green (0.2.0); third-party `uses:` steps have not been tried there and nothing needs them.
 
-**Two jobs since 2026-11-07 (workspace C30; owner: "I agree with splitting into two jobs if it will
-maintain better privacy").** The rule: no third-party package code runs in a job that sees the
-pub.dev credentials.
+**Three jobs; each holds only what it needs.** Two since 2026-11-07 (workspace C30; owner: "I agree
+with splitting into two jobs if it will maintain better privacy"); the `release` job split off
+2026-11-09 for H32's recipe (the GitHub Release page from its own job, `contents: write` only). The
+rules: no third-party package code runs in a job that sees the pub.dev credentials, and the job
+that sees them has no write token.
 - **`checks`** (`contents: read`, no secret): full `git clone --branch <tag>` WITHOUT a token (the
   repo is public, so no token lands in `.git/config`; history and tags, because the gate needs the
   previous tag), asserted to equal `github.sha` → Dart from the official apt repo → `pub get` →
   `analyze` → **fixture check (blocking)** → best-effort `dart test -p chrome` (warns, does not
-  block) → **gate self-test (blocking)** → **`compat.dart --release` (blocking)**.
-- **`publish`** (`needs: checks`; `contents: write`, used only by the GitHub Release POST): a
-  fresh runner, shallow tokenless clone asserted to equal `github.sha` (so a moved tag cannot
-  publish untested code) → Dart SDK → copy `scripts/ci_release.dart` to `$RUNNER_TEMP` → write
-  `PUB_DEV_CREDENTIALS` (`umask 077`, all candidate paths) → **publish, unless pub.dev already has
-  the version** (`ci_release.dart pub-has`; else `dart pub publish --force`, which downloads the
-  deps to validate; pub has no install scripts, so none of their code runs) → remove the
-  credentials (`if: always()`) → **GitHub Release through the REST API** (`ci_release.dart
-  github-release`, with `GITHUB_TOKEN`).
+  block) → **release-script tests (blocking, `dart test -p vm test/ci_release_test.dart`)** →
+  **gate self-test (blocking)** → **`compat.dart --release` (blocking)**.
+- **`publish`** (`needs: checks`; `contents: read`): a fresh runner, shallow tokenless clone
+  asserted to equal `github.sha` (so a moved tag cannot publish untested code) → Dart SDK → copy
+  `scripts/ci_release.dart` to `$RUNNER_TEMP` → write `PUB_DEV_CREDENTIALS` (`umask 077`, all
+  candidate paths) → **publish, unless pub.dev already has the version** (`ci_release.dart
+  pub-has`; else `dart pub publish --force`, which downloads the deps to validate; pub has no
+  install scripts, so none of their code runs) → remove the credentials (`if: always()`).
+- **`release`** (`needs: publish`; `contents: write` only; no secret, NO checkout): Dart SDK →
+  fetch `scripts/ci_release.dart` ALONE from `raw.githubusercontent.com/<repo>/<github.sha>/…`
+  (public, `curl --max-time 60 --retry 3`) → **GitHub Release through the REST API**
+  (`ci_release.dart github-release`, with `GITHUB_TOKEN`).
 
-**`scripts/ci_release.dart` (2026-11-09; workspace H30, C34).** It imports only `dart:` libraries
-and runs from `$RUNNER_TEMP`, OUTSIDE the package, so `dart run` resolves nothing and loads no
-dependency (the C30 rule). There are two commands:
+**`scripts/ci_release.dart` (2026-11-09; workspace H30, C34, H32).** It imports only `dart:`
+libraries and runs from `$RUNNER_TEMP`, OUTSIDE the package, so `dart run` resolves nothing and
+loads no dependency (the C30 rule). **Every network call has ONE time limit, connect to last byte**
+(30 s; `CI_HTTP_TIMEOUT_MS` overrides it for the tests; before 2026-11-09's H32 pass, only the
+response headers were limited). There are two commands:
 - **`pub-has <pubspec>`**: exit 0 if pub.dev answers 200 for the version (the upload is
   skipped), 3 on 404 (publish it), and 1 otherwise. It also returns 1 when `GITHUB_REF_NAME` ≠
   `v<version>`. **Why:** pub.dev never takes a version twice. Before this, a failure AFTER the
@@ -55,8 +62,22 @@ dependency (the C30 rule). There are two commands:
 - **`github-release [--dry-run]`**: the tag must exist on GitHub and peel to `GITHUB_SHA`
   (annotated tags are followed). `POST /releases` would otherwise CREATE a missing tag from the
   default branch (loader-rs's hazard, workspace rule 9). An existing release is done (exit 0), so
-  a re-run is safe. A POST must answer 201, and the release is then read back (`tag_name`, not a
-  draft).
+  a re-run is safe. The POST (`generate_release_notes`, with the pub.dev version link on top) must
+  answer 201; the release is then read back (`tag_name`, not a draft), and the tag is checked
+  AGAIN (H32's order; both since the H32 pass).
+
+**Tests, committed (H32 pass, 2026-11-09): `test/ci_release_test.dart`** (`@TestOn('vm')`, 15
+cases, ~12 s). The script runs as a child process against an in-process mock of GitHub and
+pub.dev that logs every request:
+- `github-release`: lightweight and annotated create; missing tag and other-commit tag refused with
+  no POST; existing page → no POST; POST 422; draft read-back; tag moved after the POST; dry-run;
+  no token → no request at all; a stalled API → `timed out after 1500 ms`.
+- `pub-has`: 200 / 404 / 500, and a tag ≠ `v<version>` → 1 before any request.
+
+Inverted by five one-line mutants, each caught by its own case(s): no sha check, no existing-page
+stop, no post-POST check, no time limit, no tag/version check. ⚠️ **On Windows, a child process with
+an EMPTY environment cannot open sockets** (Winsock needs `SystemRoot`): every request failed
+"Connection failed". The test passes the parent environment minus the variables the script reads.
 
 **Why Dart and not a Bun step** (workspace rule 9 suggests Bun; rule 1 allows the repo's own
 language): the publish job already has the Dart SDK. A Bun download would put a second runtime
@@ -71,7 +92,8 @@ step's exit-code idiom was checked under `bash -e` (0 → skip, 3 → publish, 1
 on GitHub with 0.3.1** (run 42633779743, attempt 1): `pub-has` said "publish", the upload
 succeeded, and `github-release` created Release `v0.3.1` (by `github-actions[bot]`, not a draft,
 notes `v0.3.0...v0.3.1`). The tag stayed `08e24c4`. **Not exercised:** the skip path on a real
-re-run, because nothing failed.
+re-run, because nothing failed. **The three-job layout, the body time limit, the post-POST check and
+the pub.dev link (H32 pass) are UNMEASURED on GitHub until the next tag run.**
 
 Before 2026-11-07 it was ONE job that ran all the checks and then wrote the credentials on the same
 runner, so a process left behind by a dependency could have read them (reasoned, never observed).

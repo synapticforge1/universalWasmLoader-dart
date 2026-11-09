@@ -10,6 +10,13 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 
 ## Open
 
+- **The next `v*` tag run measures the H32 pass** (2026-11-09): the new `release` job (its own
+  runner, `contents: write`, the script fetched alone at `github.sha`), the publish job's
+  read-only token, the whole-call time limit, the post-POST tag check and the pub.dev link in the
+  notes. Proven locally (15 mock cases, 5 mutants), not yet on GitHub. Close this item when a new
+  tag's page reads `author.login` = `github-actions[bot]` with the pub.dev link on top, and write
+  that into ledger row H32.
+
 
 
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
@@ -49,6 +56,19 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
+
+- **H32 (the Release page from CI), 2026-11-09** (owner: "review workspace for items needing this
+  project's attention and make the requested fixes"). This repo was NOT on the change list (loader-py's
+  survey: 5 tags / 5 pages / 5 by `github-actions[bot]`), but it ran the recipe's order without its
+  shape. Brought to the recipe ([releasing.md](releasing.md)):
+  - a separate `release` job: `contents: write` only, no secret, no checkout; `publish` is now
+    read-only;
+  - one time limit per network call, connect to last byte (only the headers were limited);
+  - the tag re-checked after the POST, and the pub.dev link on top of the notes;
+  - committed mock tests (`test/ci_release_test.dart`, 15 cases, blocking in `checks`), inverted by
+    5 mutants.
+  First page so far: `v0.3.1`, `author.login` = `github-actions[bot]` (the old layout). Rule
+  recorded in [working-rules.md](working-rules.md).
 
 - **0.3.1 released (2026-11-09, owner: "release"), tag → `08e24c4`;** no library change. It was the
   first real run of `scripts/ci_release.dart`: run 42633779743 green; pub.dev 0.3.1; GitHub Release

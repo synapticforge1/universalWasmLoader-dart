@@ -154,13 +154,22 @@ minor may stand in for a major, but it needs a row labelled `_next release_` in 
 Changes table above. `bump.dart` replaces that label with the version, and does the same for the
 CHANGELOG's Unreleased heading. An intended API change re-baselines `api-surface.json` in its own commit first.
 
-Pushing a `v*` tag runs `.github/workflows/publish.yml` in two jobs. **`checks`** has a read-only
-token and no secrets. It installs the Dart SDK and dependencies and runs analysis, the browser
-tests, the fixture check and the compatibility gate (both blocking). **`publish`** runs only after
-`checks` passes, on a fresh runner. It runs only the Dart SDK (`dart pub publish`, and
-`scripts/ci_release.dart`, which uses only Dart's core libraries and GitHub's REST API), so no
-dependency's code ever runs where the pub.dev credentials are on disk. The credentials are deleted
-afterwards. Both jobs refuse to run if the tag has moved off the commit that triggered the run.
+Pushing a `v*` tag runs `.github/workflows/publish.yml` in three jobs, each holding only what it
+needs:
+
+- **`checks`** has a read-only token and no secrets. It installs the Dart SDK and dependencies and
+  runs analysis, the browser tests, the release-script tests, the fixture check and the
+  compatibility gate (the last three blocking).
+- **`publish`** runs only after `checks` passes, on a fresh runner, with a read-only token. It runs
+  only the Dart SDK (`dart pub publish`, plus `scripts/ci_release.dart`, which uses only Dart's
+  core libraries). No dependency's code ever runs where the pub.dev credentials are on disk, and
+  the credentials are deleted afterwards. If pub.dev already has the version, the upload is
+  skipped, so a re-run can finish a release.
+- **`release`** makes the GitHub Release page through GitHub's REST API. It is the only job that
+  can write to the repository, and it has no credentials and no checkout: it fetches that one
+  script at the tagged commit.
+
+Every job refuses to go on if the tag has moved off the commit that triggered the run.
 
 > **`run:`-only workflow.** The GitHub Actions policy permits only first-party (owner-owned) actions, so
 > the publish workflow uses **no `uses:` steps** — checkout is `git clone`, the SDK is installed via

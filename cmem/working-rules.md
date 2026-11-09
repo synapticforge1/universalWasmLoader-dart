@@ -9,8 +9,12 @@ The workspace floor is `../../cmem/working-rules.md`; these are what bite in thi
 - 🔒 **No third-party package code runs in a CI job that holds the pub.dev credentials** (owner,
   2026-11-07, workspace C30). Checks that execute dependencies (`analyze`, `dart test`, `dart run
   scripts/...`) belong in `checks`, which has no secret. `publish` runs only the SDK's `dart pub
-  publish` and `scripts/ci_release.dart` (`dart:` imports only, run from outside the package). A
-  new check goes into `checks`, never into `publish` ([releasing.md](releasing.md)).
+  publish` and `scripts/ci_release.dart` (`dart:` imports only, run from outside the package), with
+  a READ-only token. Only `release` has `contents: write`, and it has no secret and no checkout. A
+  new check goes into `checks`, never into `publish` or `release` ([releasing.md](releasing.md)).
+- 🔒 **Every tagged release gets its GitHub Release page from CI** (owner, 2026-11-09, workspace
+  H32): from the `release` job, never by hand and never with the CLI; only NEW tags get pages (no
+  backfill).
 - 🔒 **No GitHub CLI, locally or in CI** (owner, 2026-11-08; workspace rule 9, letter H30): check
   GitHub with `git ls-remote origin` or a registry's or GitHub's public REST API. CI reaches GitHub
   through `scripts/ci_release.dart` with `GITHUB_TOKEN`. A task only the web UI can do (a Release

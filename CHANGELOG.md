@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- No library changes.
+- README: the Releasing section describes the three-job release workflow.
+- Release tooling (not part of the package): the GitHub Release page is made by its own job, which
+  is the only one that can write to the repository; the release script has tests.
+
 ## 0.3.1
 
 - No library changes.
