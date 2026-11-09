@@ -1,7 +1,10 @@
-// The publish job's two network checks, with no GitHub CLI (workspace H30) and no
-// package code (workspace C30): this file imports only `dart:` libraries, and
-// CI runs it from a directory OUTSIDE the package, so nothing is resolved or
-// loaded from pub.
+// The release workflow's two network steps, with no GitHub CLI (workspace H30)
+// and no package code (workspace C30): this file imports only `dart:`
+// libraries, and CI runs it from a directory OUTSIDE the package, so nothing is
+// resolved or loaded from pub. `pub-has` runs in the `publish` job; the
+// `release` job fetches only this file and runs `github-release` (H32).
+// Every network call has one time limit, connect to last byte (30 s;
+// CI_HTTP_TIMEOUT_MS overrides it). Tests: test/ci_release_test.dart.
 //
 //   dart run ci_release.dart pub-has <path/to/pubspec.yaml>
 //     Is this pubspec's version already on pub.dev? exit 0 = yes (skip the
@@ -13,11 +16,13 @@
 //     GITHUB_TOKEN. Refuses unless the tag already exists on GitHub and peels to
 //     GITHUB_SHA (POST /releases would otherwise CREATE a missing tag from the
 //     default branch). An existing release counts as done (exit 0). After a
-//     201 the release is read back. --dry-run sends no POST.
+//     201 the release is read back and the tag is checked again. --dry-run
+//     sends no POST.
 //
 // Environment: GITHUB_REPOSITORY, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN
 // (as set by Actions); GITHUB_API_URL and PUB_API_URL override the endpoints
 // (for a mock server).
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -59,28 +64,49 @@ String _env(String name, {String? fallback}) {
   throw _Refused('$name is not set');
 }
 
-final _client = HttpClient()..userAgent = 'universalWasmLoader-dart-ci';
+/// The time limit of each network call, from the connect to the last byte of
+/// the body (workspace best-practices 7.21). CI_HTTP_TIMEOUT_MS overrides the
+/// default 30 s (for the tests' stalled-server case).
+final _limit = Duration(
+    milliseconds:
+        int.tryParse(Platform.environment['CI_HTTP_TIMEOUT_MS'] ?? '') ??
+            30000);
 
-/// One HTTP request; returns (status, decoded JSON body or null).
+final _client = HttpClient()
+  ..userAgent = 'universalWasmLoader-dart-ci'
+  ..connectionTimeout = _limit;
+
+/// One HTTP request; returns (status, decoded JSON body or null). The whole
+/// call — connect, send, headers, body — runs under ONE time limit.
 Future<(int, Object?)> _request(String method, Uri url,
     {String? token, Object? body}) async {
-  final req = await _client.openUrl(method, url);
-  req.headers.set('Accept', 'application/vnd.github+json');
-  req.headers.set('X-GitHub-Api-Version', '2022-11-28');
-  if (token != null) req.headers.set('Authorization', 'Bearer $token');
-  if (body != null) {
-    req.headers.contentType = ContentType.json;
-    req.write(jsonEncode(body));
+  Future<(int, Object?)> call() async {
+    final req = await _client.openUrl(method, url);
+    req.headers.set('Accept', 'application/vnd.github+json');
+    req.headers.set('X-GitHub-Api-Version', '2022-11-28');
+    if (token != null) req.headers.set('Authorization', 'Bearer $token');
+    if (body != null) {
+      req.headers.contentType = ContentType.json;
+      req.write(jsonEncode(body));
+    }
+    final res = await req.close();
+    final text = await res.transform(utf8.decoder).join();
+    Object? json;
+    try {
+      json = text.isEmpty ? null : jsonDecode(text);
+    } on FormatException {
+      json = null;
+    }
+    return (res.statusCode, json);
   }
-  final res = await req.close().timeout(const Duration(seconds: 30));
-  final text = await res.transform(utf8.decoder).join();
-  Object? json;
+
   try {
-    json = text.isEmpty ? null : jsonDecode(text);
-  } on FormatException {
-    json = null;
+    return await call().timeout(_limit);
+  } on TimeoutException {
+    throw _Refused('$method $url timed out after ${_limit.inMilliseconds} ms');
+  } on SocketException catch (e) {
+    throw _Refused('$method $url failed: ${e.message}');
   }
-  return (res.statusCode, json);
 }
 
 Future<int> _pubHas(String pubspecPath) async {
@@ -119,27 +145,35 @@ Future<int> _githubRelease({required bool dryRun}) async {
   Uri u(String path) => Uri.parse('$base$path');
   final tagPath = Uri.encodeComponent(tag);
 
-  // 1. The tag must exist on GitHub and peel to this run's commit.
-  var (status, json) =
-      await _request('GET', u('/git/ref/tags/$tagPath'), token: token);
-  if (status == 404) throw _Refused('tag $tag does not exist on GitHub');
-  if (status != 200) throw _Refused('GET tag ref $tag answered $status');
-  var object = (json as Map)['object'] as Map;
-  for (var hops = 0; object['type'] == 'tag'; hops++) {
-    if (hops > 5) throw _Refused('tag $tag: too many annotated-tag hops');
-    (status, json) =
-        await _request('GET', u('/git/tags/${object['sha']}'), token: token);
-    if (status != 200) throw _Refused('GET annotated tag answered $status');
-    object = (json as Map)['object'] as Map;
+  // The tag must exist on GitHub and peel (annotated tags followed) to this
+  // run's commit. Checked before any write, and again after the POST.
+  Future<void> checkTag(String when) async {
+    var (status, json) =
+        await _request('GET', u('/git/ref/tags/$tagPath'), token: token);
+    if (status == 404) {
+      throw _Refused('tag $tag does not exist on GitHub ($when)');
+    }
+    if (status != 200) throw _Refused('GET tag ref $tag answered $status');
+    var object = (json as Map)['object'] as Map;
+    for (var hops = 0; object['type'] == 'tag'; hops++) {
+      if (hops > 5) throw _Refused('tag $tag: too many annotated-tag hops');
+      (status, json) =
+          await _request('GET', u('/git/tags/${object['sha']}'), token: token);
+      if (status != 200) throw _Refused('GET annotated tag answered $status');
+      object = (json as Map)['object'] as Map;
+    }
+    if (object['type'] != 'commit' || object['sha'] != sha) {
+      throw _Refused('tag $tag points at ${object['type']} ${object['sha']}, '
+          'not this run\'s commit $sha ($when)');
+    }
+    print('tag $tag -> $sha (verified on GitHub, $when)');
   }
-  if (object['type'] != 'commit' || object['sha'] != sha) {
-    throw _Refused('tag $tag points at ${object['type']} ${object['sha']}, '
-        'not this run\'s commit $sha');
-  }
-  print('tag $tag -> $sha (verified on GitHub)');
+
+  // 1. The tag exists and peels to this run's commit.
+  await checkTag('before any write');
 
   // 2. An existing release is done; re-runs are safe.
-  (status, json) =
+  var (status, json) =
       await _request('GET', u('/releases/tags/$tagPath'), token: token);
   if (status == 200) {
     print('GitHub Release $tag already exists — nothing to do');
@@ -152,10 +186,16 @@ Future<int> _githubRelease({required bool dryRun}) async {
     return _yes;
   }
 
-  // 3. Create it, then read it back.
-  (status, json) = await _request('POST', u('/releases'),
-      token: token,
-      body: {'tag_name': tag, 'name': tag, 'generate_release_notes': true});
+  // 3. Create it (the pub.dev link on top of GitHub's generated notes), read
+  //    it back, and check that the tag still peels to this run's commit.
+  final version = tag.startsWith('v') ? tag.substring(1) : tag;
+  (status, json) = await _request('POST', u('/releases'), token: token, body: {
+    'tag_name': tag,
+    'name': tag,
+    'body': '**pub.dev:** https://pub.dev/packages/universal_wasm_loader/'
+        'versions/$version',
+    'generate_release_notes': true,
+  });
   if (status != 201) throw _Refused('POST release $tag answered $status');
   (status, json) =
       await _request('GET', u('/releases/tags/$tagPath'), token: token);
@@ -164,6 +204,7 @@ Future<int> _githubRelease({required bool dryRun}) async {
       json['draft'] != false) {
     throw _Refused('read-back of release $tag failed ($status)');
   }
+  await checkTag('after the POST');
   print('GitHub Release $tag created: ${json['html_url']}');
   return _yes;
 }
