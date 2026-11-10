@@ -12,6 +12,7 @@ class WitParam {
   /// The WIT type token (`s32`, `s64`, `f32`, `f64`, `bool`, `string`).
   final String type;
 
+  /// A parameter named [name] (camelCase) of WIT type [type].
   const WitParam(this.name, this.type);
 }
 
@@ -29,6 +30,7 @@ class WitFunc {
   /// The result WIT type, or `null` for a void function.
   final String? result;
 
+  /// A function declaration, as [parseWit] builds it.
   const WitFunc({
     required this.name,
     required this.tsName,
@@ -51,6 +53,7 @@ class ParsedWit {
   /// Functions in the WIT `export` section.
   final List<WitFunc> exports;
 
+  /// A parsed world, as [parseWit] returns it.
   const ParsedWit({
     required this.packageName,
     required this.worldName,

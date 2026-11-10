@@ -161,29 +161,25 @@ A push of `main` whose `pubspec.yaml` version has no tag yet is a release.
   release-script tests, the fixture check and the compatibility gate, all blocking. Every other
   push of `main` runs only this job.
 - **`tag`** creates the tag `vX.Y.Z` on the checked commit, through GitHub's REST API.
-- **`release`** makes the GitHub Release page from that tag. `tag` and `release` are the only jobs
-  that can write to the repository; they have no credentials and no checkout (they fetch one
-  script at the commit).
-- **`publish`** uploads to pub.dev, last, on a fresh runner with a read-only token. It runs only the
-  Dart SDK, so no dependency's code ever runs where the pub.dev credentials are on disk, and the
-  credentials are deleted afterwards. It then checks that pub.dev serves the version.
+- **`release`** makes the GitHub Release page from that tag.
+- **`dispatch`** starts `.github/workflows/publish-pubdev.yml` on the new tag, then waits until
+  pub.dev serves the version.
+
+`publish-pubdev.yml` uploads to pub.dev with **pub.dev's automated publishing (OIDC)**: no secret is
+stored anywhere. GitHub issues a token for that one run, valid for minutes, and pub.dev accepts it
+for this package only. The workflow refuses to publish unless its tag's Release page was made by
+CI, so it cannot publish a tag that skipped the checks. No job that can publish or write runs a
+dependency's code.
 
 A failed release is finished with "Re-run failed jobs": each job skips what is already done, and a
-tag never moves. The Dart SDK is pinned by version and checksum, and no third-party action is used.
-
-> **`run:`-only workflow.** The GitHub Actions policy permits only first-party (owner-owned) actions, so
-> the publish workflow uses **no `uses:` steps** — checkout is `git clone`, the SDK is installed via
-> the Dart apt repo, and publishing is the `dart pub` CLI. The official pub.dev OIDC automated-publishing
-> reusable workflow (`dart-lang/setup-dart/.github/workflows/publish.yml`) is a third-party action and
-> therefore **cannot be used here**; we publish with a credentials file instead.
+tag never moves. The Dart SDK is pinned by version and checksum. No third-party action is used: the
+GitHub Actions policy permits only owner-owned actions, so every step is a plain `run:`.
 
 ### Owner setup (one-time)
 
-1. **Own the package on pub.dev.** `universal_wasm_loader` must be created/owned by the publishing
-   account (use a verified publisher if desired). The first publish of a new name creates it.
-2. **Create the `PUB_DEV_CREDENTIALS` repo secret.** Run `dart pub login` locally and complete the
-   Google OAuth flow; this writes `pub-credentials.json` to Dart's config dir
-   (Linux `~/.config/dart/`, Windows `%APPDATA%\dart\`, macOS `~/Library/Application Support/dart/`).
-   Copy the **entire JSON** into a GitHub Actions secret named `PUB_DEV_CREDENTIALS`
-   (Settings → Secrets and variables → Actions). It holds a refresh token — keep it secret; rotate by
-   re-running `dart pub login` and updating the secret.
+1. **Own the package on pub.dev.** `universal_wasm_loader` must be owned by the publishing account
+   (or a verified publisher).
+2. **Enable automated publishing** on the package's pub.dev admin page: GitHub Actions, repository
+   `synapticforge1/universalWasmLoader-dart`, tag pattern `v{{version}}`, with
+   **workflow_dispatch events** allowed (the publish run is dispatched on the tag). No GitHub
+   environment is required.

@@ -88,6 +88,9 @@ reactor module's `_initialize` is called once after instantiation.
   compilation, though `dart analyze` passes); wrap it in a closure.
 - `lib/src/wit_parser.dart` — the strict `parseWit` (SPEC § 2 grammar) + `WitFunc`/`WitParam`/
   `ParsedWit` + kebab helpers.
+- `example/main.dart` — the pub.dev example (added 2026-11-10: pub.dev scores "Package has an
+  example", 10 points). It runs in a browser; it analyzes clean and compiles with `dart compile js`,
+  and is NOT run by the suite.
 - `test/` — see [testing.md](testing.md). `scripts/` — see [releasing.md](releasing.md) and
   [compat-gate.md](compat-gate.md). `api-surface.json` — the committed surface snapshot.
 - `pubspec.yaml` — SDK `^3.4.0`; dep `web`; dev-deps `test`, `lints`, `crypto` (fixture check),

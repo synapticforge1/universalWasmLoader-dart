@@ -6,6 +6,8 @@
 - Releases now run checks first, then CI creates the tag, then the GitHub Release page, then the
   pub.dev upload, with a read-back. A release is started by pushing `main`. README's Releasing
   section is updated.
+- Published to pub.dev with automated publishing (OIDC) from GitHub Actions; no stored credential.
+- An example (`example/main.dart`), and documentation for every public constructor.
 
 ## 0.3.2
 

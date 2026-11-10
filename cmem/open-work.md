@@ -20,8 +20,12 @@ that runs no package code (C30). The history was purged of a drive path and forc
   and read-only against GitHub ([releasing.md](releasing.md)), not yet run. Close it with the run id
   and the tag's `tagger` (`github-actions[bot]`) in [release.md](release.md), and write that into
   ledger row H33.
-- **🗓️ OWNER: pub.dev OIDC automated publishing (U8's target), or keep the credentials secret?**
-  Explained to the owner on 2026-11-10:
+- **pub.dev OIDC: DECIDED and built (2026-11-10).** The owner enabled automated publishing on
+  pub.dev (`v{{version}}`, push + workflow_dispatch events, no environment); `publish.yml`'s
+  `dispatch` job now starts `publish-pubdev.yml` on the tag, with no stored secret
+  ([releasing.md](releasing.md)). **The next release measures it.** Then the 🗓️ OWNER deletes
+  the `PUB_DEV_CREDENTIALS` secret and revokes that login, and may turn off pub.dev's "push events"
+  (unused) ([release.md](release.md)). The explanation given on 2026-11-10, for the record:
   - **The secret:** `PUB_DEV_CREDENTIALS` is the owner's personal `dart pub login` refresh token.
     It can publish every package the account can upload, it is long-lived, and only rotation by
     hand fixes a leak. Its exposure is limited (C30), but that is what it can do.
@@ -35,8 +39,12 @@ that runs no package code (C30). The history was purged of a drive path and forc
     2. CI dispatches a publish run on the new tag after the page;
     3. one release proves it, then the secret is deleted and the login revoked.
 
-  Waiting for the owner's step 1. Recommended, not urgent. Details in
-  [release.md](release.md) § "Not filled yet".
+  Step 1 done by the owner the same day; step 2 built; step 3 waits for the release.
+- **pub.dev documentation score 10/20 → expected 20/20 at the next release** (owner, 2026-11-10).
+  pub.dev's report (metrics API) gave 10/10 for dartdoc coverage (40 of 45 elements, 88.9 %) and
+  0/10 for "Package has an example": there was no `example/`. Added `example/main.dart` (analyzes
+  clean, compiles with `dart compile js`) and docs on the 5 undocumented constructors. pub.dev
+  rescores only on a new version; read the score back after the next release.
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
   requests, so no other ref holds them. Send from the account that administers the org, at

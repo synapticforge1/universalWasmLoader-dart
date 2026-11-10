@@ -9,12 +9,16 @@ The workspace floor is `../../cmem/working-rules.md`; these are what bite in thi
   tags, makes the page and publishes to pub.dev, irreversibly (the owner's order D1, 2026-11-10;
   [release.md](release.md)). So a version change lands only through `bump.dart` + `release.dart`,
   never inside other work, and no tag is ever made by hand: CI makes it.
-- 🔒 **No third-party package code runs in a CI job that holds the pub.dev credentials** (owner,
-  2026-11-07, workspace C30). Checks that execute dependencies (`analyze`, `dart test`, `dart run
-  scripts/...`) belong in `checks`, which has no secret. `publish` runs only the SDK's `dart pub
-  publish` and `scripts/ci_release.dart` (`dart:` imports only, run from outside the package), with
-  a READ-only token. Only `release` has `contents: write`, and it has no secret and no checkout. A
-  new check goes into `checks`, never into `publish` or `release` ([releasing.md](releasing.md)).
+- 🔒 **No third-party package code runs in a CI job that can publish or write** (owner, 2026-11-07,
+  workspace C30). Checks that execute dependencies (`analyze`, `dart test`, `dart run
+  scripts/...`) belong in `checks` (read-only, no secret). The jobs that can write or publish run
+  only the SDK and `scripts/ci_release.dart` (`dart:` imports only, run from outside the package):
+  - `tag` / `release`: `contents: write`, no checkout;
+  - `dispatch`: `actions: write`;
+  - `publish-pubdev.yml`: `id-token: write` (pub.dev OIDC since 2026-11-10; no stored secret).
+
+  A new check goes into `checks`, never into a job that can write or publish
+  ([releasing.md](releasing.md)).
 - 🔒 **Every tagged release gets its GitHub Release page from CI** (owner, 2026-11-09, workspace
   H32): from the `release` job, never by hand and never with the CLI; only NEW tags get pages (no
   backfill).

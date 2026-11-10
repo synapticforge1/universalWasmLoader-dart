@@ -18,7 +18,7 @@ was not given ([working-rules.md](working-rules.md) § Owner commands).
 | U5 `checks` | on every push of `main` (`contents: read`): the gate; "is this a release?" (`ci_release.dart state`: `new` / `rerun` / `none`); for a release `compat --release` on the untagged candidate + the publish dry run |
 | U6 `tag` | CI's annotated `vX.Y.Z` on the pushed commit (REST `git/tags` + `git/refs`, `contents: write`); there already = done, elsewhere = refused; read back |
 | U7 `release` | the GitHub Release page FROM the tag (H32's order), the pub.dev link on top, BEFORE the publish |
-| U8 `publish` | pub.dev last (`contents: read`, the credentials secret): skip if pub.dev serves the version, else `dart pub publish --force`; credentials removed; **read-back fatal** (pub.dev must serve the version) |
+| U8 `publish` | pub.dev last, **OIDC, no stored secret** (since 2026-11-10): `publish.yml`'s `dispatch` job (`actions: write`) starts `publish-pubdev.yml` ON THE TAG. That run has `id-token: write` + `contents: read` and runs `verify-released` (the tag's page was made by CI, or refuse), then pub-has skip / `dart pub publish --force` with the minted token, then a read-back. `dispatch` waits for pub.dev to serve the version (**fatal**, ≤ 10 min) |
 | U9 pins | 0 `uses:`; Dart SDK by version + sha256 in every job; top-level `permissions: {}`; `concurrency` per ref, never cancelled |
 | U10 as a user | after the run, by hand: a scratch package that depends on `universal_wasm_loader: X.Y.Z` resolves it from pub.dev and analyzes clean |
 | U11 the record | this file, § Release History |
@@ -26,15 +26,22 @@ was not given ([working-rules.md](working-rules.md) § Owner commands).
 
 **Not filled yet, with the reason:**
 
-- **U8 credential: still the `PUB_DEV_CREDENTIALS` secret, not pub.dev's OIDC automated publishing**
-  (the § 6 target). Reasoned, not measured (2026-11-10): pub.dev's automated publishing accepts a
-  token only from a run whose ref matches the tag pattern configured on pub.dev (`v{{version}}`).
-  Under D1 this run starts from a push of `main` (`refs/heads/main`). A tag made with
-  `GITHUB_TOKEN` starts no run, though a `workflow_dispatch` on the tag ref can, and pub.dev has a
-  setting to accept dispatch events. So OIDC needs (1) the owner to enable automated publishing on
-  the package's pub.dev admin page, with the dispatch option, and (2) the publish moved into a
-  dispatched run on the tag. The old premise "the reusable workflow is forbidden" is no obstacle:
-  the OIDC token can be minted with plain `run:` steps. 🗓️ OWNER decision.
+- **U8, pub.dev OIDC — built 2026-11-10, UNMEASURED until the next release.** The owner enabled
+  automated publishing on pub.dev the same day: repository `synapticforge1/universalWasmLoader-dart`,
+  tag pattern `v{{version}}`, push AND workflow_dispatch events, no environment.
+  - **Why a dispatched workflow:** pub.dev takes the token only from a run whose ref is a matching
+    tag. Under D1 the release run starts from `main`, and a tag made with `GITHUB_TOKEN` starts no
+    run, but a `workflow_dispatch` on the tag does.
+  - **How the token is minted:** with plain `run:` steps, as `dart-lang/setup-dart` does: GitHub's
+    OIDC endpoint with audience `https://pub.dev`, masked, `dart pub token add https://pub.dev
+    --env-var PUB_TOKEN`.
+  - **Guard:** the dispatched run refuses unless the tag peels to its commit and the tag's page was
+    made by `github-actions[bot]`. Checked read-only against the real GitHub: `v0.3.2` at its commit
+    passes, at another commit refused, on `main` refused.
+  - 🗓️ **OWNER, after the first OIDC release succeeds:** delete the `PUB_DEV_CREDENTIALS` repo
+    secret (no workflow reads it since 2026-11-10), and revoke that `dart pub login`. And consider
+    turning OFF "push events" on pub.dev: no workflow uses them, and a future workflow listening to
+    tag pushes could otherwise publish a hand-pushed tag that skipped the checks.
 - **U10 in CI:** done by hand after the run, not in the workflow. It installs and analyzes package
   code, which the publish job must not run (C30).
 

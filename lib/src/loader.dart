@@ -52,6 +52,9 @@ void _assertVersion(
 /// [reason]. A token that is already cancelled fails a load before any fetch.
 /// One token may serve several loads.
 final class LoadCancelToken {
+  /// A token that is not cancelled yet.
+  LoadCancelToken();
+
   bool _cancelled = false;
   Object? _reason;
   final List<void Function()> _listeners = [];
@@ -93,6 +96,8 @@ final class LoadOptions {
   /// Cancels the load; see [LoadCancelToken].
   final LoadCancelToken? cancel;
 
+  /// Options with a [timeout] per fetch (default 30 s; `null` for no limit)
+  /// and an optional [cancel] token.
   const LoadOptions({this.timeout = defaultTimeout, this.cancel});
 }
 

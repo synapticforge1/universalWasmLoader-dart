@@ -42,11 +42,19 @@ job that sees them has no write token, and only `tag` / `release` can write.
   `ci_release.dart` fetched ALONE from `raw.githubusercontent.com/<repo>/<github.sha>/…`, then `tag`.
 - **`release`** (`needs: [checks, tag]`; `contents: write`; no checkout): the script alone again,
   then `github-release`: the page from the tag, BEFORE the publish.
-- **`publish`** (`needs: [checks, release]`; `contents: read`): a tokenless clone at `github.sha` →
-  Dart → copy the script to `$RUNNER_TEMP` → write `PUB_DEV_CREDENTIALS` (`umask 077`) → `pub-has`:
-  skip, or `dart pub publish --force` (downloads the deps to validate; pub has no install scripts,
-  so none of their code runs) → remove the credentials (`if: always()`) → **`pub-readback`,
-  fatal**.
+- **`dispatch`** (`needs: [checks, release]`; `actions: write` only; no checkout): Dart, then
+  `ci_release.dart` and `pubspec.yaml` fetched alone at `github.sha` → `dispatch
+  publish-pubdev.yml` (the tag must exist; `POST actions/workflows/…/dispatches` with `ref` = the
+  tag, 204) → **`pub-readback`, fatal** (40 × 15 s).
+- **`publish-pubdev.yml`** (separate workflow, `workflow_dispatch` only; one job, `contents: read`
+  + `id-token: write`, no secret): the ref must be `refs/tags/v*`; a tokenless clone at
+  `github.sha` → Dart → **`verify-released`** (the tag peels to this commit AND its page was made
+  by `github-actions[bot]`, or refuse) → `pub-has`: skip, or mint pub.dev's OIDC token (GitHub's
+  OIDC endpoint, audience `https://pub.dev`, masked; `dart pub token add https://pub.dev --env-var
+  PUB_TOKEN`) and `dart pub publish --force` (downloads the deps to validate; pub has no install
+  scripts, so none of their code runs) → `pub-readback`. **Until 2026-11-10 the publish job used
+  the `PUB_DEV_CREDENTIALS` secret** (written with `umask 077`, removed after); no workflow reads it
+  any more.
 
 A tag made with the job's `GITHUB_TOKEN` starts no workflow run, so tag, page and publish follow
 `needs:` in the SAME run. That is why the trigger is `main`, not a tag.
@@ -150,15 +158,19 @@ The setup: a scratch bare repo as `origin` and a scratch clone of this repo. The
 
 - the CI-made tag;
 - `needs:` chaining from a push of `main`;
-- pub.dev accepting the credentials from that run (expected: the secret has no ref check);
+- the dispatch of `publish-pubdev.yml` on the tag, and pub.dev accepting its OIDC token;
 - the read-back.
 
-## Owner setup (one-time, done) and the credential
+## Owner setup (one-time) and the credential
 
-`dart pub login` locally, then copy the full `pub-credentials.json` into the repo secret
-`PUB_DEV_CREDENTIALS`; rotate by logging in again. The secret holds a refresh token and survived the
-org transfer. The move to pub.dev's OIDC automated publishing is an owner decision; the reasoning
-is in [release.md](release.md) § "Not filled yet".
+**Since 2026-11-10: pub.dev automated publishing (OIDC)**, enabled by the owner on the package's admin
+page: repository `synapticforge1/universalWasmLoader-dart`, tag pattern `v{{version}}`, push and
+workflow_dispatch events, no environment. No credential is stored. The owner was told why a stored
+token is the larger risk: `PUB_DEV_CREDENTIALS` held the owner's personal `dart pub login` refresh
+token, long-lived, valid for every package the account can upload. **Retire it after the first OIDC
+release succeeds:** delete the repo secret, and revoke the login (🗓️ owner;
+[release.md](release.md)). Before that date the secret held that token; it survived the org
+transfer.
 
 ## Scripting runtime 🔒 (owner, 2026-10-22)
 
