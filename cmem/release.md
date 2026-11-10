@@ -26,7 +26,8 @@ was not given ([working-rules.md](working-rules.md) § Owner commands).
 
 **Not filled yet, with the reason:**
 
-- **U8, pub.dev OIDC — built 2026-11-10, UNMEASURED until the next release.** The owner enabled
+- **U8, pub.dev OIDC — built 2026-11-10, MEASURED by 0.3.3 the same day** (after the owner
+  pressed Update; history below). The owner enabled
   automated publishing on pub.dev the same day: repository `synapticforge1/universalWasmLoader-dart`,
   tag pattern `v{{version}}`, push AND workflow_dispatch events, no environment.
   - **Why a dispatched workflow:** pub.dev takes the token only from a run whose ref is a matching
@@ -46,6 +47,37 @@ was not given ([working-rules.md](working-rules.md) § Owner commands).
   code, which the publish job must not run (C30).
 
 ## Release History
+
+- **0.3.3 (2026-11-10), tag → `f59a239`** (annotated, object `6eede6a`, tagger
+  `github-actions[bot]`). *Changed:*
+  - no library change;
+  - the first release in the owner's order: checks → CI's tag → page → pub.dev;
+  - the first release **published to pub.dev with OIDC**, no stored secret;
+  - an `example/` and docs on every public constructor (pub.dev's documentation score was 10/20
+    for want of an example).
+
+  *Checked:*
+  - `bump.dart patch`: floor patch, v0.3.2's 37 tests green. `release.dart`: guards and the cold
+    gate passed; it pushed `main` only.
+  - **Run 42879868853:** `checks` 18:54:17–18:55:45Z; `tag` 18:55:48–18:55:59Z (the tag made via
+    REST, 18:55:55Z); `release` 18:56:02–18:56:12Z (the page 18:56:11Z).
+  - **First attempt FAILED at the publish:** `dispatch` started `publish-pubdev.yml` on `v0.3.3`.
+    In run 42880230614, `verify-released` passed, GitHub minted the OIDC token, `dart pub` used it,
+    and validation passed. Then pub.dev refused the upload: *"publishing from github is not
+    enabled"* (exit 65). The owner had filled in the pub.dev settings but not pressed **Update**.
+    `dispatch` then failed its 10-minute read-back, as designed. The tag and the page stood; 0.3.3
+    was not on pub.dev.
+  - **Recovery:** the owner pressed Update, then "Re-run failed jobs" on 42879868853 (attempt 2).
+    `dispatch` 19:12:19–19:13:02Z started pub.dev run **42882936400** (green), and pub.dev
+    published 0.3.3 at **19:12:49Z**. The read-back passed.
+  - **The lessons:** no code change and no new tag were needed, because the fix was a setting and
+    the re-run used the tag's own workflow. Had the cause been in the workflow, it would have needed
+    0.3.4 (a tag never moves).
+  - The `release` page: by `github-actions[bot]`, pub.dev link on top, `releases/latest`.
+  - pub.dev's score had not yet been recomputed for 0.3.3 when read (it still showed 0.3.2's).
+
+  The job logs of the publish runs need a signed-in download. The owner pasted the refusal; the
+  public check-run annotations only showed "exit code 65".
 
 - **0.3.2 (2026-11-09), tag → `e22927c`.** *Changed:* no library change. The release workflow got
   its third job, `release`, the only one with `contents: write`; `publish` got a read-only token. The

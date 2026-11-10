@@ -1,50 +1,27 @@
 # Open work — the ONE list (status lives here and nowhere else)
 
-**State (2026-11-09):** **0.3.2 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
-tag `v0.3.2` → `e22927c`. Its library is 0.3.0's (released 2026-11-07, `1fe255f`). 0.3.1 and 0.3.2
-carry the README and the release tooling: no GitHub CLI, and since 0.3.2 the Release page comes
-from its own `release` job (H32). **Since 2026-11-10 (H33, local `main`), releases run in the
-owner's order:** `release.dart` pushes `main` only, and CI checks → tags → makes the page → publishes
-([release.md](release.md)). Pushed 2026-11-10 (`e4b85a0`); its run 42877135280 measured the
-non-release path (`checks` green, the rest skipped). ⚠️ A push of `main` with an untagged
-`pubspec.yaml` version IS a release.
-Every release passes the blocking compatibility gate in CI, and the credentials live only in a job
-that runs no package code (C30). The history was purged of a drive path and force-pushed on
-2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10-26.md)).
+**State (2026-11-10):** **0.3.3 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
+tag `v0.3.3` → `f59a239`, its library 0.3.0's (released 2026-11-07, `1fe255f`). Releases run in the
+owner's order: `release.dart` pushes `main` only, and CI checks → tags → makes the page → publishes
+to pub.dev with **OIDC, no stored secret** ([release.md](release.md); measured end to end by 0.3.3).
+⚠️ A push of `main` with an untagged `pubspec.yaml` version IS a release. Every release passes the
+blocking compatibility gate in CI, and no job that can write or publish runs package code (C30). The
+history was purged of a drive path and force-pushed on 2026-10-26 (H19,
+[history-map-2026-10-26.md](history-map-2026-10-26.md)).
 
 ## Open
 
-- **The first release in the owner's order measures it on GitHub** (H33, 2026-11-10): the
-  CI-made tag, `needs:` chaining from a push of `main`, pub.dev taking the credentials from that
-  run, the fatal read-back, and the browser tests now blocking. Rehearsed locally (scratch remote)
-  and read-only against GitHub ([releasing.md](releasing.md)), not yet run. Close it with the run id
-  and the tag's `tagger` (`github-actions[bot]`) in [release.md](release.md), and write that into
-  ledger row H33.
-- **pub.dev OIDC: DECIDED and built (2026-11-10).** The owner enabled automated publishing on
-  pub.dev (`v{{version}}`, push + workflow_dispatch events, no environment); `publish.yml`'s
-  `dispatch` job now starts `publish-pubdev.yml` on the tag, with no stored secret
-  ([releasing.md](releasing.md)). **The next release measures it.** Then the 🗓️ OWNER deletes
-  the `PUB_DEV_CREDENTIALS` secret and revokes that login, and may turn off pub.dev's "push events"
-  (unused) ([release.md](release.md)). The explanation given on 2026-11-10, for the record:
-  - **The secret:** `PUB_DEV_CREDENTIALS` is the owner's personal `dart pub login` refresh token.
-    It can publish every package the account can upload, it is long-lived, and only rotation by
-    hand fixes a leak. Its exposure is limited (C30), but that is what it can do.
-  - **OIDC:** no stored secret. A token minted per run, valid for minutes, for this package only;
-    pub.dev shows the version as published by GitHub Actions.
-  - **The catch:** pub.dev takes it only from a run started by a matching tag push (or a
-    workflow_dispatch, opt-in), and D1's run starts from `main`.
-  - **The path:**
-    1. the owner enables automated publishing on the package admin page (repo, `v{{version}}`,
-       workflow_dispatch allowed);
-    2. CI dispatches a publish run on the new tag after the page;
-    3. one release proves it, then the secret is deleted and the login revoked.
-
-  Step 1 done by the owner the same day; step 2 built; step 3 waits for the release.
-- **pub.dev documentation score 10/20 → expected 20/20 at the next release** (owner, 2026-11-10).
-  pub.dev's report (metrics API) gave 10/10 for dartdoc coverage (40 of 45 elements, 88.9 %) and
-  0/10 for "Package has an example": there was no `example/`. Added `example/main.dart` (analyzes
-  clean, compiles with `dart compile js`) and docs on the 5 undocumented constructors. pub.dev
-  rescores only on a new version; read the score back after the next release.
+- **🗓️ OWNER: retire the pub.dev secret, now that OIDC is proven (0.3.3, 2026-11-10).** Delete the
+  repo secret `PUB_DEV_CREDENTIALS` (Settings → Secrets and variables → Actions; no workflow reads it
+  since 2026-11-10), and revoke the `dart pub login` it came from (the Google account's third-party
+  access for the Dart / pub client). And consider turning OFF "push events" in pub.dev's automated
+  publishing: nothing uses them, and a future workflow listening to tag pushes could otherwise
+  publish a hand-pushed tag that skipped the checks. Why the secret was the larger risk:
+  [releasing.md](releasing.md) § Owner setup.
+- **pub.dev documentation score: read back 20/20 once pub.dev has analyzed 0.3.3** (owner,
+  2026-11-10). It was 10/20: 10/10 dartdoc coverage (40 of 45, 88.9 %), 0/10 "Package has an
+  example". 0.3.3 adds `example/main.dart` and the five missing constructor docs. When read on
+  2026-11-10 at 19:14Z, the metrics API still showed 0.3.2's report (not yet analyzed).
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
   requests, so no other ref holds them. Send from the account that administers the org, at

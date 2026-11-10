@@ -154,7 +154,10 @@ The setup: a scratch bare repo as `origin` and a scratch clone of this repo. The
   and `state` answered "not a release";
 - `tag` / `release` / `publish` skipped, because 0.3.2 is already tagged on `e22927c`.
 
-**UNMEASURED on GitHub until the first release in this order:**
+**MEASURED on GitHub by 0.3.3 (2026-11-10)** — every item below, including pub.dev's OIDC token
+from a run dispatched on the tag (after the owner's pub.dev "Update"; [release.md](release.md)).
+Still unexercised: the pub-has skip inside a real re-run of the publish run. The list, as it stood
+before 0.3.3:
 
 - the CI-made tag;
 - `needs:` chaining from a push of `main`;
