@@ -1,135 +1,211 @@
 name: Publish
 
+# 🔒 The owner's order (2026-11-10, workspace release-process.md § 5, D1):
+# "the CI to check first, then push the tag, and then create the release page
+# from the tag, then publish the package to the registry". A release is a push
+# of `main` whose pubspec version has no tag yet: scripts/release.dart pushes
+# the bump commit and NOTHING else; this workflow does the rest, in one run:
+#
+#   checks  (contents: read)   the gate on the pushed commit; "is this a release?"
+#   tag     (contents: write)  CI's annotated tag v<version> on that commit
+#   release (contents: write)  the GitHub Release page FROM the tag
+#   publish (contents: read)   pub.dev, last; skip if published; fatal read-back
+#
+# A tag made with the job's GITHUB_TOKEN starts no workflow run, so tag, page
+# and publish follow `needs:` in THIS run. Every other push of `main` runs
+# `checks` alone. A failed release is finished with "Re-run failed jobs":
+# each job skips what is already done (U12); a tag never moves.
+#
+# NOTE: The Actions policy only permits first-party (owner-owned) actions, so
+# there is no `uses:` step: checkout is `git clone`, the Dart SDK is the
+# official zip pinned by version AND sha256, GitHub is reached through its
+# REST API (no GitHub CLI, workspace H30). pub.dev is published with a
+# credentials file (PUB_DEV_CREDENTIALS), in ONE job that runs no package code
+# and has a read-only token (C30).
+
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
 
-# NOTE: The Actions policy only permits first-party (owner-owned) actions.
-# Third-party `uses:` steps (actions/checkout, dart-lang/setup-dart, and the
-# official dart-lang/setup-dart/.github/workflows/publish.yml reusable OIDC
-# workflow) cause a `startup_failure` — the workflow never runs a single step.
-# Every step here MUST therefore be a plain `run:` step: checkout via git
-# clone, install the Dart SDK via run:, and publish via the `dart pub` CLI.
-# Because the official pub.dev OIDC automated-publishing reusable workflow is
-# off-limits, this uses a credentials-file approach instead (PUB_DEV_CREDENTIALS
-# secret → pub-credentials.json), then `dart pub publish --force`.
-#
-# Three jobs, on purpose. Each holds only what it needs:
-# - `checks` (workspace C30, owner 2026-11-07) runs every step that EXECUTES
-#   third-party package code (analyze, tests, the gate): read-only token, no
-#   secret.
-# - `publish` runs on a fresh runner, only the Dart SDK and one dart:-only
-#   script; it is the only job that sees PUB_DEV_CREDENTIALS, and its token is
-#   read-only.
-# - `release` (workspace H32, owner 2026-11-09) makes the GitHub Release page
-#   after the upload: `contents: write` only, no credentials, no checkout of
-#   package code — it fetches scripts/ci_release.dart alone, at github.sha.
-# No GitHub CLI anywhere (workspace H30): GitHub is reached through its REST API.
+permissions: {}
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Dart SDK, pinned (U9). The sha256 is dart-archive's published sum, and was
+  # re-hashed from the download on 2026-11-10 (238,850,892 bytes).
+  DART_VERSION: "3.13.7"
+  DART_SHA256: "eb99aed266efbcb615c6ae21c12f52cfe935b9f208bccc5fea7f64c21e867229"
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      release: ${{ steps.state.outputs.release }}
+      tag: ${{ steps.state.outputs.tag }}
 
     steps:
-      - name: Checkout (the tag's commit, no token)
+      - name: Checkout (this commit, full history, no token)
         # Full history + tags: the compatibility gate compares with the
-        # previous release tag (scripts/compat.dart --release). The repository
-        # is public, so the clone needs no token and none is stored in .git.
+        # previous release tag. The repository is public, so the clone needs
+        # no token and none is stored in .git.
         run: |
           set -euo pipefail
-          git clone --branch "${{ github.ref_name }}" \
-            "https://github.com/${{ github.repository }}" .
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}" \
-            || { echo "::error::tag ${{ github.ref_name }} no longer points at ${{ github.sha }}"; exit 1; }
+          git clone "https://github.com/${{ github.repository }}" .
+          git checkout --detach "${{ github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
 
-      - name: Install Dart SDK
+      - name: Install Dart SDK (pinned by version + sha256)
         run: |
           set -euo pipefail
-          # Official Dart apt repository (Debian/Ubuntu). All plain `run:` — no
-          # third-party action involved.
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https wget gnupg
-          wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
-            | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
-          echo "deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main" \
-            | sudo tee /etc/apt/sources.list.d/dart_stable.list
-          sudo apt-get update
-          sudo apt-get install -y dart
-          echo "/usr/lib/dart/bin" >> "$GITHUB_PATH"
+          curl -fsSL --max-time 300 --retry 3 -o "$RUNNER_TEMP/dartsdk.zip" \
+            "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip"
+          echo "${DART_SHA256}  $RUNNER_TEMP/dartsdk.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/dartsdk.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sdk/bin" >> "$GITHUB_PATH"
 
-      - name: Show Dart version
-        run: dart --version
+      - name: Is this push a release?
+        # kind=new (v<version> not on GitHub), rerun (on this commit) or none.
+        id: state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp scripts/ci_release.dart "$RUNNER_TEMP/ci_release.dart"
+          ( cd "$RUNNER_TEMP" && dart run ci_release.dart state "$GITHUB_WORKSPACE/pubspec.yaml" )
 
       - name: Install dependencies
-        run: dart pub get
+        run: |
+          dart --version
+          dart pub get
 
       - name: Analyze
         run: dart analyze
 
       - name: Check fixtures match the reference stamp
-        # Hard gate (unlike the browser tests): test/fixtures/ must be the -js
-        # reference set, byte for byte (H7 / S4).
+        # test/fixtures/ must be the -js reference set, byte for byte (H7 / S4).
         run: dart run scripts/check_fixtures.dart
 
-      - name: Test (best-effort, needs a browser)
-        run: |
-          set -euo pipefail
-          # The package is web-only; its tests are `@TestOn('browser')` and need a
-          # Chrome/Chromium. ubuntu-latest usually ships Chrome preinstalled, but we
-          # do not hard-fail the publish if it is missing or the run errors.
-          if command -v google-chrome >/dev/null 2>&1 \
-            || command -v google-chrome-stable >/dev/null 2>&1 \
-            || command -v chromium >/dev/null 2>&1 \
-            || command -v chromium-browser >/dev/null 2>&1; then
-            echo "Chrome found — running browser tests."
-            dart test -p chrome || echo "::warning::dart test -p chrome failed; continuing to publish."
-          else
-            echo "::warning::No Chrome/Chromium on the runner — skipping browser tests."
-          fi
+      - name: Browser tests (blocking)
+        # The package is web-only; its tests are @TestOn('browser') and need
+        # Chrome, which ubuntu-latest ships. Missing Chrome fails the release.
+        run: dart test -p chrome
 
       - name: Release script tests (blocking)
-        # scripts/ci_release.dart against a mock GitHub / pub.dev (H30, C34, H32).
+        # scripts/ci_release.dart against a mock GitHub / pub.dev.
         run: dart test -p vm test/ci_release_test.dart
 
       - name: Compatibility gate self-test
         run: dart run scripts/check_compat_gate.dart
 
-      - name: Compatibility gate (blocking)
-        # Hard gate (H6): the version raise since the previous tag must meet
-        # the surface floor, api-surface.json must be current, and the previous
-        # tag's tests must pass against this lib/ in Chrome for a patch/minor.
-        run: dart run scripts/compat.dart --release
+      - name: Compatibility gate
+        # A release: blocking, on the untagged candidate (H6, H33): the floor
+        # since the previous tag, api-surface.json current, the previous tag's
+        # tests green in Chrome for a patch / minor. An ordinary push: report.
+        run: |
+          if [ "${{ steps.state.outputs.release }}" = "true" ]; then
+            dart run scripts/compat.dart --release
+          else
+            dart run scripts/compat.dart || echo "::warning::the compatibility report has problems; the next release must answer them"
+          fi
+
+      - name: Publish dry run
+        if: steps.state.outputs.release == 'true'
+        run: dart pub publish --dry-run
+
+  tag:
+    needs: checks
+    if: needs.checks.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only for git/tags + git/refs
+    env:
+      RELEASE_TAG: ${{ needs.checks.outputs.tag }}
+
+    steps:
+      - name: Install Dart SDK (pinned by version + sha256)
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 300 --retry 3 -o "$RUNNER_TEMP/dartsdk.zip" \
+            "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip"
+          echo "${DART_SHA256}  $RUNNER_TEMP/dartsdk.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/dartsdk.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sdk/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch the release script alone (at github.sha, no checkout)
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 60 --retry 3 \
+            "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/scripts/ci_release.dart" \
+            -o "$RUNNER_TEMP/ci_release.dart"
+
+      - name: Create the tag (REST API)
+        # Annotated v<version> on github.sha; already there = done; on another
+        # commit = refused; read back.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart tag
+
+  release:
+    needs: [checks, tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only for the GitHub Release (POST /releases)
+    env:
+      RELEASE_TAG: ${{ needs.checks.outputs.tag }}
+
+    steps:
+      - name: Install Dart SDK (pinned by version + sha256)
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 300 --retry 3 -o "$RUNNER_TEMP/dartsdk.zip" \
+            "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip"
+          echo "${DART_SHA256}  $RUNNER_TEMP/dartsdk.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/dartsdk.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sdk/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch the release script alone (at github.sha, no checkout)
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 60 --retry 3 \
+            "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/scripts/ci_release.dart" \
+            -o "$RUNNER_TEMP/ci_release.dart"
+
+      - name: Create the GitHub Release page from the tag (REST API)
+        # H32's order: the tag peels to github.sha; an existing page is done;
+        # POST with generated notes and the pub.dev link; read back; peel again.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart github-release
 
   publish:
-    needs: checks
+    needs: [checks, release]
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      RELEASE_TAG: ${{ needs.checks.outputs.tag }}
 
     steps:
-      - name: Checkout (the tag's commit, no token)
+      - name: Checkout (this commit, no token)
         run: |
           set -euo pipefail
-          git clone --depth 1 --branch "${{ github.ref_name }}" \
-            "https://github.com/${{ github.repository }}" .
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}" \
-            || { echo "::error::tag ${{ github.ref_name }} no longer points at ${{ github.sha }}"; exit 1; }
+          git clone "https://github.com/${{ github.repository }}" .
+          git checkout --detach "${{ github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
 
-      - name: Install Dart SDK
+      - name: Install Dart SDK (pinned by version + sha256)
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https wget gnupg
-          wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
-            | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
-          echo "deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main" \
-            | sudo tee /etc/apt/sources.list.d/dart_stable.list
-          sudo apt-get update
-          sudo apt-get install -y dart
-          echo "/usr/lib/dart/bin" >> "$GITHUB_PATH"
+          curl -fsSL --max-time 300 --retry 3 -o "$RUNNER_TEMP/dartsdk.zip" \
+            "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip"
+          echo "${DART_SHA256}  $RUNNER_TEMP/dartsdk.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/dartsdk.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sdk/bin" >> "$GITHUB_PATH"
 
       # From here on, nothing runs a package's code: `dart pub publish`
       # downloads the dependencies to validate the package but does not execute
@@ -165,10 +241,9 @@ jobs:
           printf '%s' "$PUB_DEV_CREDENTIALS" > "$HOME/.pub-cache/credentials.json"
           echo "Credentials written."
 
-      - name: Publish to pub.dev
-        # Skipped when pub.dev already has this version (workspace C34): pub.dev
-        # never takes a version twice, so after a failure LATER in this job a
-        # re-run would otherwise stop here and never reach the GitHub Release.
+      - name: Publish to pub.dev (skipped when pub.dev already has it)
+        # pub.dev never takes a version twice: a re-run after a later failure
+        # must skip the upload (C34).
         run: |
           # Actions runs this with `bash -e`, so the exit code is caught with
           # `|| rc=$?`, never read after a bare failing command.
@@ -187,39 +262,6 @@ jobs:
           rm -f "$HOME/.config/dart/pub-credentials.json" "$HOME/.pub-cache/credentials.json"
           if [ -n "${XDG_CONFIG_HOME:-}" ]; then rm -f "$XDG_CONFIG_HOME/dart/pub-credentials.json"; fi
 
-  release:
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # only for the GitHub Release (POST /releases)
-
-    steps:
-      - name: Install Dart SDK
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https wget gnupg
-          wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
-            | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
-          echo "deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main" \
-            | sudo tee /etc/apt/sources.list.d/dart_stable.list
-          sudo apt-get update
-          sudo apt-get install -y dart
-          echo "/usr/lib/dart/bin" >> "$GITHUB_PATH"
-
-      - name: Fetch the release script alone (at github.sha, no checkout)
-        # The one file, from the public repo at this run's commit; no package
-        # code is checked out beside the write token (C30, H32).
-        run: |
-          set -euo pipefail
-          curl -fsSL --max-time 60 --retry 3 \
-            "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/scripts/ci_release.dart" \
-            -o "$RUNNER_TEMP/ci_release.dart"
-
-      - name: Create GitHub Release (REST API)
-        # Requires the tag to exist and peel to github.sha (POST /releases would
-        # otherwise create a missing tag); an existing release is done, so a
-        # re-run is safe; the new release is read back and the tag re-checked.
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: cd "$RUNNER_TEMP" && dart run ci_release.dart github-release
+      - name: Read back from pub.dev (fatal)
+        # A green upload is not proof: pub.dev must serve the version.
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart pub-readback "$GITHUB_WORKSPACE/pubspec.yaml"

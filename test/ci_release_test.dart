@@ -1,4 +1,4 @@
-// Tests for scripts/ci_release.dart (workspace H30, C34, H32) against an
+// Tests for scripts/ci_release.dart (workspace H30, C34, H32, H33) against an
 // in-process mock of GitHub's REST API and pub.dev. The script runs as a child
 // process (Process.run is asynchronous, so the mock keeps serving), exactly as
 // CI runs it. Run: dart test -p vm test/ci_release_test.dart
@@ -15,15 +15,29 @@ const _other = '0000000000000000000000000000000000000000';
 
 /// What the mock answers; every request is logged in [log].
 class _Mock {
-  String tag = 'commit'; // commit | annotated | missing | other
+  /// missing | commit | annotated | other — what refs/tags/v1.0.0 is now.
+  String tag = 'commit';
   bool moveTagAfterPost = false;
   bool releaseExists = false;
   int postStatus = 201;
   bool readBackDraft = false;
   bool stall = false;
+
+  /// git/refs answer when CI creates the tag; on 201 / 422 the tag appears.
+  int refsStatus = 201;
+
+  /// The created tag object peels to [_other] instead of the run's commit.
+  bool createdElsewhere = false;
+
   int pubStatus = 404;
+
+  /// pub.dev starts serving the version at this request (0 = per [pubStatus]).
+  int pubServesFrom = 0;
+  String pubVersion = '1.0.0';
+
   final log = <String>[];
   bool _posted = false;
+  int _pubGets = 0;
 
   late HttpServer _server;
   String get url => 'http://127.0.0.1:${_server.port}';
@@ -49,15 +63,26 @@ class _Mock {
     }
 
     if (p.startsWith('/api/packages/')) {
-      send(pubStatus);
+      _pubGets++;
+      final serves =
+          pubServesFrom > 0 ? _pubGets >= pubServesFrom : pubStatus == 200;
+      if (serves) {
+        send(200, {'version': pubVersion});
+      } else {
+        send(pubServesFrom > 0 ? 404 : pubStatus);
+      }
     } else if (p.endsWith('/git/ref/tags/v1.0.0')) {
-      final moved = moveTagAfterPost && _posted;
-      switch (moved ? 'other' : tag) {
+      final now = moveTagAfterPost && _posted ? 'other' : tag;
+      switch (now) {
         case 'missing':
           send(404);
         case 'annotated':
           send(200, {
             'object': {'type': 'tag', 'sha': 'ttt'}
+          });
+        case 'created':
+          send(200, {
+            'object': {'type': 'tag', 'sha': 'newtag'}
           });
         case 'other':
           send(200, {
@@ -72,6 +97,15 @@ class _Mock {
       send(200, {
         'object': {'type': 'commit', 'sha': _c}
       });
+    } else if (p.endsWith('/git/tags/newtag')) {
+      send(200, {
+        'object': {'type': 'commit', 'sha': createdElsewhere ? _other : _c}
+      });
+    } else if (p.endsWith('/git/tags') && req.method == 'POST') {
+      send(201, {'sha': 'newtag'});
+    } else if (p.endsWith('/git/refs') && req.method == 'POST') {
+      if (refsStatus == 201 || refsStatus == 422) tag = 'created';
+      send(refsStatus);
     } else if (p.endsWith('/releases/tags/v1.0.0')) {
       if (releaseExists || _posted) {
         send(200, {
@@ -95,14 +129,19 @@ class _Mock {
 }
 
 Future<ProcessResult> _run(_Mock m, List<String> args,
-    {String? token = 'test-token', String ref = 'v1.0.0'}) {
+    {String? token = 'test-token',
+    String? tag = 'v1.0.0',
+    Map<String, String> extra = const {}}) {
   // The parent environment minus everything the script reads: an EMPTY
   // environment breaks sockets on Windows (Winsock needs SystemRoot).
   final base = Map.of(Platform.environment)
-    ..removeWhere((k, _) =>
-        k.toUpperCase().startsWith('GITHUB_') ||
-        k.toUpperCase() == 'PUB_API_URL' ||
-        k.toUpperCase() == 'CI_HTTP_TIMEOUT_MS');
+    ..removeWhere((k, _) {
+      final u = k.toUpperCase();
+      return u.startsWith('GITHUB_') ||
+          u.startsWith('READBACK_') ||
+          const {'PUB_API_URL', 'CI_HTTP_TIMEOUT_MS', 'RELEASE_TAG'}
+              .contains(u);
+    });
   return Process.run(
     Platform.resolvedExecutable,
     ['run', 'scripts/ci_release.dart', ...args],
@@ -111,10 +150,12 @@ Future<ProcessResult> _run(_Mock m, List<String> args,
       'GITHUB_API_URL': m.url,
       'PUB_API_URL': m.url,
       'GITHUB_REPOSITORY': 'o/r',
-      'GITHUB_REF_NAME': ref,
+      'GITHUB_REF_NAME': 'main',
       'GITHUB_SHA': _c,
       if (token != null) 'GITHUB_TOKEN': token,
+      if (tag != null) 'RELEASE_TAG': tag,
       'CI_HTTP_TIMEOUT_MS': '1500',
+      ...extra,
     },
     includeParentEnvironment: false,
   );
@@ -124,13 +165,117 @@ String _out(ProcessResult r) => '${r.stdout}${r.stderr}';
 
 void main() {
   late _Mock m;
+  late String pubspec;
   setUp(() async {
     m = _Mock();
     await m.start();
+    final dir = Directory.systemTemp.createTempSync('ci_release_test');
+    pubspec = '${dir.path}${Platform.pathSeparator}pubspec.yaml';
+    File(pubspec).writeAsStringSync('name: x\nversion: 1.0.0\n');
+    addTearDown(() => dir.deleteSync(recursive: true));
   });
   tearDown(() => m.stop());
 
-  group('github-release', () {
+  group('state (U5: is this push a release?)', () {
+    test('tag absent → kind=new, written to GITHUB_OUTPUT', () async {
+      m.tag = 'missing';
+      final out = '${File(pubspec).parent.path}${Platform.pathSeparator}out';
+      final r = await _run(m, ['state', pubspec],
+          tag: null, extra: {'GITHUB_OUTPUT': out});
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(File(out).readAsStringSync(),
+          'kind=new\nrelease=true\ntag=v1.0.0\nversion=1.0.0\n');
+    });
+
+    test('tag on this commit (annotated) → kind=rerun', () async {
+      m.tag = 'annotated';
+      final r = await _run(m, ['state', pubspec], tag: null);
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(r.stdout, contains('kind=rerun'));
+      expect(r.stdout, contains('release=true'));
+    });
+
+    test('tag on another commit → kind=none (an ordinary push)', () async {
+      m.tag = 'other';
+      final r = await _run(m, ['state', pubspec], tag: null);
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(r.stdout, contains('kind=none'));
+      expect(r.stdout, contains('release=false'));
+      expect(m.posts, 0);
+    });
+  });
+
+  group('tag (U6: CI creates the tag)', () {
+    test('absent: POST git/tags + git/refs, read back', () async {
+      m.tag = 'missing';
+      final r = await _run(m, ['tag']);
+      expect(r.exitCode, 0, reason: _out(r));
+      final posts = m.log.where((l) => l.startsWith('POST')).toList();
+      expect(posts, hasLength(2));
+      expect(posts[0], startsWith('POST /repos/o/r/git/tags auth'));
+      expect(posts[0], contains('"object":"$_c"'));
+      expect(posts[1], contains('"ref":"refs/tags/v1.0.0"'));
+      expect(posts[1], contains('"sha":"newtag"'));
+      expect(_out(r), contains('after creating it'));
+    });
+
+    test('already on this commit: done, no POST', () async {
+      final r = await _run(m, ['tag']);
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(_out(r), contains('nothing to do'));
+      expect(m.posts, 0);
+    });
+
+    test('on another commit: refused, no POST', () async {
+      m.tag = 'other';
+      final r = await _run(m, ['tag']);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('never moves'));
+      expect(m.posts, 0);
+    });
+
+    test('a 422 on git/refs is decided by the read-back', () async {
+      m.tag = 'missing';
+      m.refsStatus = 422;
+      final r = await _run(m, ['tag']);
+      expect(r.exitCode, 0, reason: _out(r));
+    });
+
+    test('a 500 on git/refs fails', () async {
+      m.tag = 'missing';
+      m.refsStatus = 500;
+      final r = await _run(m, ['tag']);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('git/refs'));
+    });
+
+    test('a created tag that peels elsewhere fails the read-back', () async {
+      m.tag = 'missing';
+      m.createdElsewhere = true;
+      final r = await _run(m, ['tag']);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('after creating it'));
+    });
+
+    test('--dry-run sends no POST', () async {
+      m.tag = 'missing';
+      final r = await _run(m, ['tag', '--dry-run']);
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(m.posts, 0);
+    });
+
+    test('no RELEASE_TAG or no token: refused before any request', () async {
+      var r = await _run(m, ['tag'], tag: null);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('RELEASE_TAG'));
+      r = await _run(m, ['tag'], token: null);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('GITHUB_TOKEN'));
+      expect(m.log, isEmpty);
+    });
+  });
+
+  group('github-release (U7: the page from the tag)', () {
     test('lightweight tag: POST once (token, notes, pub.dev link), read back',
         () async {
       final r = await _run(m, ['github-release']);
@@ -225,15 +370,7 @@ void main() {
     });
   });
 
-  group('pub-has', () {
-    late String pubspec;
-    setUp(() {
-      final dir = Directory.systemTemp.createTempSync('ci_release_test');
-      pubspec = '${dir.path}${Platform.pathSeparator}pubspec.yaml';
-      File(pubspec).writeAsStringSync('name: x\nversion: 1.0.0\n');
-      addTearDown(() => dir.deleteSync(recursive: true));
-    });
-
+  group('pub-has (U8: skip if published)', () {
     test('200 → 0 (skip the upload)', () async {
       m.pubStatus = 200;
       final r = await _run(m, ['pub-has', pubspec]);
@@ -253,11 +390,45 @@ void main() {
       expect(r.exitCode, 1);
     });
 
-    test('a tag that is not v<version> → 1, before any request', () async {
-      final r = await _run(m, ['pub-has', pubspec], ref: 'v9.9.9');
+    test('RELEASE_TAG that is not v<version> → 1, before any request',
+        () async {
+      final r = await _run(m, ['pub-has', pubspec], tag: 'v9.9.9');
       expect(r.exitCode, 1);
       expect(_out(r), contains('does not match'));
       expect(m.log, isEmpty);
+    });
+  });
+
+  group('pub-readback (U8: fatal read-back)', () {
+    const fast = {'READBACK_TRIES': '4', 'READBACK_WAIT_MS': '20'};
+
+    test('served at once → 0', () async {
+      m.pubStatus = 200;
+      final r = await _run(m, ['pub-readback', pubspec], extra: fast);
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(r.stdout, contains('try 1'));
+    });
+
+    test('served after two 404s → 0 on the third try', () async {
+      m.pubServesFrom = 3;
+      final r = await _run(m, ['pub-readback', pubspec], extra: fast);
+      expect(r.exitCode, 0, reason: _out(r));
+      expect(r.stdout, contains('try 3'));
+    });
+
+    test('never served → 1 after the tries', () async {
+      final r = await _run(m, ['pub-readback', pubspec], extra: fast);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('after 4 tries'));
+      expect(m.log, hasLength(4));
+    });
+
+    test('200 for another version → 1', () async {
+      m.pubStatus = 200;
+      m.pubVersion = '0.9.9';
+      final r = await _run(m, ['pub-readback', pubspec], extra: fast);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('without version'));
     });
   });
 }

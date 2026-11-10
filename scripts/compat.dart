@@ -18,7 +18,9 @@
 //
 // Run via:  dart run scripts/compat.dart                    # report vs last tag
 //           dart run scripts/compat.dart --against v0.1.0   # vs an older tag
-//           dart run scripts/compat.dart --release          # CI, on the tag
+//           dart run scripts/compat.dart --release          # CI, on the release
+//                                                           # candidate (untagged,
+//                                                           # or tagged on a re-run)
 //
 // `dart run scripts/bump.dart` runs the same checks before it raises the version.
 
@@ -269,14 +271,24 @@ Future<void> main(List<String> args) async {
   final version = pubspecVersion();
   final List<String> problems;
   if (args.contains('--release')) {
-    // On the tag being published: compare with the release before it.
-    final tags = git(['tag', '--points-at', 'HEAD']).split('\n');
-    final prev = lastTag('HEAD^');
+    // The release candidate (workspace H33, owner's order D1): CI checks the
+    // pushed `main` commit BEFORE any tag exists, so v<version> is normally
+    // absent and the previous release is the newest tag below HEAD. On a
+    // re-run CI has already tagged HEAD: then the previous release is the
+    // newest tag below HEAD^. A v<version> tag on ANOTHER commit is refused.
+    final tagged =
+        git(['tag', '--points-at', 'HEAD']).split('\n').contains('v$version');
+    final elsewhere =
+        !tagged && git(['tag', '--list', 'v$version']).trim().isNotEmpty;
+    final prev = tagged ? lastTag('HEAD^') : lastTag('HEAD');
     final kind = bumpKind(prev.substring(1), version);
-    print('release $prev → v$version is a $kind');
+    print('release candidate $prev → v$version is a $kind'
+        '${tagged ? ' (re-run: HEAD is already tagged)' : ''}');
     problems = [
-      if (!tags.contains('v$version'))
-        'HEAD is not tagged v$version (tags here: ${tags.join(', ')})',
+      if (elsewhere)
+        'tag v$version already exists on another commit '
+            '(${git(['rev-list', '-n', '1', 'v$version'])}); a published tag '
+            'never moves',
       ...await judge(prev,
           kind: kind, from: prev.substring(1), rowLabel: version),
     ];
