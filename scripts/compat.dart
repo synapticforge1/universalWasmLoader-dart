@@ -278,20 +278,20 @@ Future<void> main(List<String> args) async {
     // newest tag below HEAD^. A v<version> tag on ANOTHER commit is refused.
     final tagged =
         git(['tag', '--points-at', 'HEAD']).split('\n').contains('v$version');
-    final elsewhere =
-        !tagged && git(['tag', '--list', 'v$version']).trim().isNotEmpty;
+    if (!tagged && git(['tag', '--list', 'v$version']).trim().isNotEmpty) {
+      reportBlocked([
+        'tag v$version already exists on another commit '
+            '(${git(['rev-list', '-n', '1', 'v$version'])}); a published tag '
+            'never moves — raise the version instead',
+      ]);
+      exit(1);
+    }
     final prev = tagged ? lastTag('HEAD^') : lastTag('HEAD');
     final kind = bumpKind(prev.substring(1), version);
     print('release candidate $prev → v$version is a $kind'
         '${tagged ? ' (re-run: HEAD is already tagged)' : ''}');
-    problems = [
-      if (elsewhere)
-        'tag v$version already exists on another commit '
-            '(${git(['rev-list', '-n', '1', 'v$version'])}); a published tag '
-            'never moves',
-      ...await judge(prev,
-          kind: kind, from: prev.substring(1), rowLabel: version),
-    ];
+    problems = await judge(prev,
+        kind: kind, from: prev.substring(1), rowLabel: version);
   } else {
     final at = args.indexOf('--against');
     final tag = at >= 0 && at + 1 < args.length ? args[at + 1] : lastTag();
