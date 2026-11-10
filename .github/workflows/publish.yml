@@ -6,22 +6,28 @@ name: Publish
 # of `main` whose pubspec version has no tag yet: scripts/release.dart pushes
 # the bump commit and NOTHING else; this workflow does the rest, in one run:
 #
-#   checks  (contents: read)   the gate on the pushed commit; "is this a release?"
-#   tag     (contents: write)  CI's annotated tag v<version> on that commit
-#   release (contents: write)  the GitHub Release page FROM the tag
-#   publish (contents: read)   pub.dev, last; skip if published; fatal read-back
+#   checks   (contents: read)   the gate on the pushed commit; "is this a release?"
+#   tag      (contents: write)  CI's annotated tag v<version> on that commit
+#   release  (contents: write)  the GitHub Release page FROM the tag
+#   dispatch (actions: write)   starts publish-pubdev.yml ON THE TAG, then waits
+#                               for pub.dev to serve the version (fatal)
 #
-# A tag made with the job's GITHUB_TOKEN starts no workflow run, so tag, page
-# and publish follow `needs:` in THIS run. Every other push of `main` runs
-# `checks` alone. A failed release is finished with "Re-run failed jobs":
-# each job skips what is already done (U12); a tag never moves.
+# pub.dev is published WITHOUT a stored secret: pub.dev's automated publishing
+# (OIDC) is enabled for this repo (owner, 2026-11-10: tag pattern v{{version}},
+# workflow_dispatch events allowed, no environment). pub.dev takes the OIDC
+# token only from a run whose ref is the tag, and a tag made with the job's
+# GITHUB_TOKEN starts no run — but a workflow_dispatch does. So the publish runs
+# in publish-pubdev.yml, dispatched on the new tag, and it refuses unless that
+# tag's Release page was made by CI (i.e. these checks passed).
+#
+# Every other push of `main` runs `checks` alone. A failed release is finished
+# with "Re-run failed jobs": each job skips what is already done (U12); a tag
+# never moves.
 #
 # NOTE: The Actions policy only permits first-party (owner-owned) actions, so
 # there is no `uses:` step: checkout is `git clone`, the Dart SDK is the
 # official zip pinned by version AND sha256, GitHub is reached through its
-# REST API (no GitHub CLI, workspace H30). pub.dev is published with a
-# credentials file (PUB_DEV_CREDENTIALS), in ONE job that runs no package code
-# and has a read-only token (C30).
+# REST API (no GitHub CLI, workspace H30).
 
 on:
   push:
@@ -182,22 +188,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: cd "$RUNNER_TEMP" && dart run ci_release.dart github-release
 
-  publish:
+  dispatch:
     needs: [checks, release]
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      actions: write # only to start publish-pubdev.yml on the tag
     env:
       RELEASE_TAG: ${{ needs.checks.outputs.tag }}
 
     steps:
-      - name: Checkout (this commit, no token)
-        run: |
-          set -euo pipefail
-          git clone "https://github.com/${{ github.repository }}" .
-          git checkout --detach "${{ github.sha }}"
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
-
       - name: Install Dart SDK (pinned by version + sha256)
         run: |
           set -euo pipefail
@@ -207,61 +206,25 @@ jobs:
           unzip -q "$RUNNER_TEMP/dartsdk.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/dart-sdk/bin" >> "$GITHUB_PATH"
 
-      # From here on, nothing runs a package's code: `dart pub publish`
-      # downloads the dependencies to validate the package but does not execute
-      # them (pub has no install scripts), and no `dart test` runs. The one
-      # script, scripts/ci_release.dart, imports only `dart:` libraries and is
-      # run from $RUNNER_TEMP, outside the package, so nothing is resolved.
+      - name: Fetch the release script and pubspec alone (at github.sha, no checkout)
+        run: |
+          set -euo pipefail
+          for f in scripts/ci_release.dart pubspec.yaml; do
+            curl -fsSL --max-time 60 --retry 3 \
+              "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/$f" \
+              -o "$RUNNER_TEMP/$(basename "$f")"
+          done
 
-      - name: Stage the release script outside the package
-        run: cp scripts/ci_release.dart "$RUNNER_TEMP/ci_release.dart"
-
-      - name: Write pub.dev credentials
+      - name: Start the pub.dev publish on the tag (workflow_dispatch)
+        # Re-runs are safe: the dispatched run skips an upload pub.dev has.
         env:
-          PUB_DEV_CREDENTIALS: ${{ secrets.PUB_DEV_CREDENTIALS }}
-        run: |
-          set -euo pipefail
-          if [ -z "${PUB_DEV_CREDENTIALS:-}" ]; then
-            echo "::error::PUB_DEV_CREDENTIALS secret is empty. Generate it locally with \`dart pub login\` and copy the resulting pub-credentials.json into the repo secret. See README.md → Releasing."
-            exit 1
-          fi
-          # On Linux, `dart pub` reads credentials from $PUB_CACHE if set, otherwise
-          # from $XDG_CONFIG_HOME/dart/ (falling back to $HOME/.config/dart/).
-          # Write to all candidate locations so the path is correct regardless of
-          # the runner's default. The file is pub-credentials.json (newer SDKs);
-          # older SDKs used credentials.json under $PUB_CACHE — write both names.
-          umask 077
-          mkdir -p "$HOME/.config/dart"
-          printf '%s' "$PUB_DEV_CREDENTIALS" > "$HOME/.config/dart/pub-credentials.json"
-          if [ -n "${XDG_CONFIG_HOME:-}" ]; then
-            mkdir -p "$XDG_CONFIG_HOME/dart"
-            printf '%s' "$PUB_DEV_CREDENTIALS" > "$XDG_CONFIG_HOME/dart/pub-credentials.json"
-          fi
-          mkdir -p "$HOME/.pub-cache"
-          printf '%s' "$PUB_DEV_CREDENTIALS" > "$HOME/.pub-cache/credentials.json"
-          echo "Credentials written."
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart dispatch publish-pubdev.yml
 
-      - name: Publish to pub.dev (skipped when pub.dev already has it)
-        # pub.dev never takes a version twice: a re-run after a later failure
-        # must skip the upload (C34).
-        run: |
-          # Actions runs this with `bash -e`, so the exit code is caught with
-          # `|| rc=$?`, never read after a bare failing command.
-          set -euo pipefail
-          rc=0
-          ( cd "$RUNNER_TEMP" && dart run ci_release.dart pub-has "$GITHUB_WORKSPACE/pubspec.yaml" ) || rc=$?
-          case "$rc" in
-            0) echo "Already on pub.dev; nothing to upload." ;;
-            3) dart pub publish --force ;;
-            *) echo "::error::could not tell whether pub.dev has this version (exit $rc)"; exit 1 ;;
-          esac
+      - name: Wait for pub.dev to serve the version (fatal)
+        # The dispatched run installs Dart and publishes (~3 min); allow 10.
+        env:
+          READBACK_TRIES: "40"
+          READBACK_WAIT_MS: "15000"
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart pub-readback pubspec.yaml
 
-      - name: Remove pub.dev credentials
-        if: always()
-        run: |
-          rm -f "$HOME/.config/dart/pub-credentials.json" "$HOME/.pub-cache/credentials.json"
-          if [ -n "${XDG_CONFIG_HOME:-}" ]; then rm -f "$XDG_CONFIG_HOME/dart/pub-credentials.json"; fi
-
-      - name: Read back from pub.dev (fatal)
-        # A green upload is not proof: pub.dev must serve the version.
-        run: cd "$RUNNER_TEMP" && dart run ci_release.dart pub-readback "$GITHUB_WORKSPACE/pubspec.yaml"

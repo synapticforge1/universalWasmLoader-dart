@@ -29,6 +29,12 @@ class _Mock {
   /// The created tag object peels to [_other] instead of the run's commit.
   bool createdElsewhere = false;
 
+  /// The answer to POST actions/workflows/<file>/dispatches.
+  int dispatchStatus = 204;
+
+  /// Who made the existing Release page.
+  String releaseAuthor = 'github-actions[bot]';
+
   int pubStatus = 404;
 
   /// pub.dev starts serving the version at this request (0 = per [pubStatus]).
@@ -111,11 +117,16 @@ class _Mock {
         send(200, {
           'tag_name': 'v1.0.0',
           'draft': readBackDraft,
-          'html_url': 'https://example.invalid/r'
+          'html_url': 'https://example.invalid/r',
+          'author': {'login': releaseAuthor},
         });
       } else {
         send(404);
       }
+    } else if (p.contains('/actions/workflows/') &&
+        p.endsWith('/dispatches') &&
+        req.method == 'POST') {
+      res.statusCode = dispatchStatus; // 204 has no body
     } else if (p.endsWith('/releases') && req.method == 'POST') {
       if (postStatus == 201) _posted = true;
       send(postStatus);
@@ -367,6 +378,79 @@ void main() {
       expect(_out(r), contains('timed out after 1500 ms'));
       expect(sw.elapsed, lessThan(const Duration(seconds: 20)));
       expect(m.posts, 0);
+    });
+  });
+
+  group('dispatch (U8: start the pub.dev run on the tag)', () {
+    test('204: one POST with the tag as ref, token sent', () async {
+      final r = await _run(m, ['dispatch', 'publish-pubdev.yml']);
+      expect(r.exitCode, 0, reason: _out(r));
+      final post = m.log.singleWhere((l) => l.startsWith('POST'));
+      expect(
+          post,
+          startsWith('POST /repos/o/r/actions/workflows/publish-pubdev.yml/'
+              'dispatches auth'));
+      expect(post, contains('"ref":"v1.0.0"'));
+    });
+
+    test('a refused dispatch (403) fails', () async {
+      m.dispatchStatus = 403;
+      final r = await _run(m, ['dispatch', 'publish-pubdev.yml']);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('403'));
+    });
+
+    test('no tag yet: refused, no POST', () async {
+      m.tag = 'missing';
+      final r = await _run(m, ['dispatch', 'publish-pubdev.yml']);
+      expect(r.exitCode, 1);
+      expect(m.posts, 0);
+    });
+
+    test('not a workflow file name, or no token: refused before any request',
+        () async {
+      var r = await _run(m, ['dispatch', '../x']);
+      expect(r.exitCode, 1);
+      r = await _run(m, ['dispatch', 'publish-pubdev.yml'], token: null);
+      expect(r.exitCode, 1);
+      expect(m.log, isEmpty);
+    });
+  });
+
+  group('verify-released (the dispatched run may publish?)', () {
+    test('tag on this commit and a page by github-actions[bot] → 0', () async {
+      m.releaseExists = true;
+      final r = await _run(m, ['verify-released']);
+      expect(r.exitCode, 0, reason: _out(r));
+    });
+
+    test('no Release page → refused', () async {
+      final r = await _run(m, ['verify-released']);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('no GitHub Release page'));
+    });
+
+    test('a page made by a person → refused', () async {
+      m.releaseExists = true;
+      m.releaseAuthor = 'someone';
+      final r = await _run(m, ['verify-released']);
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('not made by CI'));
+    });
+
+    test('a tag on another commit → refused', () async {
+      m.releaseExists = true;
+      m.tag = 'other';
+      final r = await _run(m, ['verify-released']);
+      expect(r.exitCode, 1);
+    });
+
+    test('a run not on a release tag (ref main) → refused, no request',
+        () async {
+      final r = await _run(m, ['verify-released'], tag: 'main');
+      expect(r.exitCode, 1);
+      expect(_out(r), contains('not on a release tag'));
+      expect(m.log, isEmpty);
     });
   });
 

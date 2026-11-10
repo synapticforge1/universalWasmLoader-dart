@@ -1,0 +1,104 @@
+name: Publish to pub.dev
+
+# The last step of a release, in the owner's order (workspace
+# release-process.md § 5, D1): publish.yml's `dispatch` job starts this
+# workflow ON THE NEW TAG after `checks`, `tag` and the Release page.
+#
+# pub.dev automated publishing (OIDC) — enabled by the owner on pub.dev,
+# 2026-11-10: repository synapticforge1/universalWasmLoader-dart, tag pattern
+# v{{version}}, workflow_dispatch events allowed, no environment. pub.dev takes
+# the token only from a run whose ref is a matching tag, which is why this is a
+# separate, dispatched workflow. No secret is stored anywhere: GitHub mints a
+# token for this run, valid for minutes, and pub.dev accepts it for this
+# package only.
+#
+# Guard: `verify-released` refuses unless the run is on a v<X.Y.Z> tag that
+# peels to this commit AND whose GitHub Release page was made by CI — proof
+# that publish.yml's checks passed. A dispatch by hand on any other ref cannot
+# publish. A re-run skips an upload pub.dev already has.
+#
+# No `uses:` steps (Actions policy); no GitHub CLI (workspace H30); no package
+# code runs here (C30): `dart pub publish` downloads the dependencies to
+# validate the package but does not execute them, and the one script imports
+# only `dart:` libraries and runs outside the package.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: publish-pubdev-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Dart SDK, pinned (U9): dart-archive's published sum, re-hashed from the
+  # download on 2026-11-10 (238,850,892 bytes). Same pin as publish.yml.
+  DART_VERSION: "3.13.7"
+  DART_SHA256: "eb99aed266efbcb615c6ae21c12f52cfe935b9f208bccc5fea7f64c21e867229"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # pub.dev's OIDC token, minted for this run only
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout (the tag's commit, no token)
+        run: |
+          set -euo pipefail
+          case "${{ github.ref }}" in
+            refs/tags/v*) ;;
+            *) echo "::error::not started on a release tag: ${{ github.ref }}"; exit 1 ;;
+          esac
+          git clone "https://github.com/${{ github.repository }}" .
+          git checkout --detach "${{ github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+
+      - name: Install Dart SDK (pinned by version + sha256)
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 300 --retry 3 -o "$RUNNER_TEMP/dartsdk.zip" \
+            "https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip"
+          echo "${DART_SHA256}  $RUNNER_TEMP/dartsdk.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/dartsdk.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/dart-sdk/bin" >> "$GITHUB_PATH"
+
+      - name: Stage the release script outside the package
+        run: cp scripts/ci_release.dart "$RUNNER_TEMP/ci_release.dart"
+
+      - name: Was this tag released by CI? (else refuse)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart verify-released
+
+      - name: Publish to pub.dev with the OIDC token (skipped when published)
+        run: |
+          # Actions runs this with `bash -e`, so the exit code is caught with
+          # `|| rc=$?`, never read after a bare failing command.
+          set -euo pipefail
+          rc=0
+          ( cd "$RUNNER_TEMP" && dart run ci_release.dart pub-has "$GITHUB_WORKSPACE/pubspec.yaml" ) || rc=$?
+          case "$rc" in
+            0) echo "Already on pub.dev; nothing to upload."; exit 0 ;;
+            3) ;;
+            *) echo "::error::could not tell whether pub.dev has this version (exit $rc)"; exit 1 ;;
+          esac
+          # The token, for audience https://pub.dev, from GitHub's OIDC
+          # provider (what dart-lang/setup-dart does, with plain steps).
+          PUB_TOKEN="$(curl -fsS --max-time 30 \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://pub.dev" | jq -r '.value')"
+          if [ -z "$PUB_TOKEN" ] || [ "$PUB_TOKEN" = "null" ]; then
+            echo "::error::no OIDC token from GitHub (is id-token: write set?)"; exit 1
+          fi
+          echo "::add-mask::$PUB_TOKEN"
+          export PUB_TOKEN
+          dart pub token add https://pub.dev --env-var PUB_TOKEN
+          dart pub publish --force
+
+      - name: Read back from pub.dev (fatal)
+        run: cd "$RUNNER_TEMP" && dart run ci_release.dart pub-readback "$GITHUB_WORKSPACE/pubspec.yaml"

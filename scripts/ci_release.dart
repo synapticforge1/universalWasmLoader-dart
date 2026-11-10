@@ -23,6 +23,20 @@
 //     tag); an existing page = done; POST with generated notes and the pub.dev
 //     link on top; read back; the tag checked again.
 //
+//   dart run ci_release.dart dispatch <workflow-file>      (job `dispatch`, U8)
+//     Starts <workflow-file> (publish-pubdev.yml) on the ref RELEASE_TAG via
+//     POST actions/workflows/<file>/dispatches (204). A tag made with
+//     GITHUB_TOKEN starts no run, but a workflow_dispatch does — and pub.dev's
+//     OIDC publishing takes a run whose ref is the tag (owner's pub.dev
+//     setting, 2026-11-10: `v{{version}}`, workflow_dispatch events allowed).
+//
+//   dart run ci_release.dart verify-released               (publish-pubdev.yml)
+//     In the dispatched run (RELEASE_TAG = the run's tag, GITHUB_SHA = its
+//     commit): refuses unless the tag peels to GITHUB_SHA AND its GitHub
+//     Release page exists, made by github-actions[bot] — proof that the main
+//     run's checks passed, so a dispatch by hand on any other tag cannot
+//     publish.
+//
 //   dart run ci_release.dart pub-has <pubspec.yaml>        (job `publish`, U8)
 //     exit 0 = pub.dev already serves the version (skip the upload; re-runs
 //     are safe), 3 = not yet (publish), 1 = cannot tell, or RELEASE_TAG is not
@@ -52,6 +66,8 @@ Future<void> main(List<String> args) async {
       ['tag', '--dry-run'] => await _tag(dryRun: true),
       ['github-release'] => await _githubRelease(dryRun: false),
       ['github-release', '--dry-run'] => await _githubRelease(dryRun: true),
+      ['dispatch', final workflow] => await _dispatch(workflow),
+      ['verify-released'] => await _verifyReleased(),
       ['pub-has', final pubspec] => await _pubHas(pubspec),
       ['pub-readback', final pubspec] => await _pubReadback(pubspec),
       _ => _usage(),
@@ -67,6 +83,8 @@ int _usage() {
   stderr.writeln('usage: dart run ci_release.dart state <pubspec.yaml>\n'
       '       dart run ci_release.dart tag [--dry-run]\n'
       '       dart run ci_release.dart github-release [--dry-run]\n'
+      '       dart run ci_release.dart dispatch <workflow-file>\n'
+      '       dart run ci_release.dart verify-released\n'
       '       dart run ci_release.dart pub-has <pubspec.yaml>\n'
       '       dart run ci_release.dart pub-readback <pubspec.yaml>');
   return 64;
@@ -292,6 +310,49 @@ Future<int> _githubRelease({required bool dryRun}) async {
   }
   await api.checkTag(tag, 'after the POST');
   print('GitHub Release $tag created: ${json['html_url']}');
+  return _yes;
+}
+
+/// U8: start the pub.dev publish workflow on the tag (OIDC needs a tag ref).
+Future<int> _dispatch(String workflow) async {
+  final tag = _env('RELEASE_TAG');
+  final api = _GitHub(needToken: true);
+  if (!RegExp(r'^[\w.-]+\.ya?ml$').hasMatch(workflow)) {
+    throw _Refused('not a workflow file name: $workflow');
+  }
+  // The tag must already be there (the page job ran after it).
+  await api.checkTag(tag, 'before the dispatch');
+  final (status, _) = await api.post(
+      '/actions/workflows/${Uri.encodeComponent(workflow)}/dispatches',
+      {'ref': tag});
+  if (status != 204) {
+    throw _Refused('dispatch of $workflow on $tag answered $status');
+  }
+  print('dispatched $workflow on $tag');
+  return _yes;
+}
+
+/// The dispatched publish run: only a tag the main run released may publish.
+Future<int> _verifyReleased() async {
+  final tag = _env('RELEASE_TAG');
+  if (!RegExp(r'^v\d+\.\d+\.\d+$').hasMatch(tag)) {
+    throw _Refused('this run is not on a release tag (ref: $tag)');
+  }
+  final api = _GitHub(needToken: false);
+  await api.checkTag(tag, 'the dispatched run');
+  final (status, json) =
+      await api.get('/releases/tags/${Uri.encodeComponent(tag)}');
+  if (status == 404) {
+    throw _Refused('tag $tag has no GitHub Release page: the main release run '
+        'did not get past its checks, so this run may not publish');
+  }
+  if (status != 200) throw _Refused('GET release $tag answered $status');
+  final author = ((json as Map)['author'] as Map?)?['login'];
+  if (author != 'github-actions[bot]' || json['draft'] != false) {
+    throw _Refused('the Release page of $tag was not made by CI '
+        '(author: $author, draft: ${json['draft']}); refusing to publish');
+  }
+  print('tag $tag was released by CI (page by $author): may publish');
   return _yes;
 }
 
