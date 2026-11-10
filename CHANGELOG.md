@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.3
 
 - No library changes.
 - Releases now run checks first, then CI creates the tag, then the GitHub Release page, then the
