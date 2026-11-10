@@ -9,7 +9,7 @@ gate"): "backward compatible" is a gate result, never a judgment made at bump ti
 | Rule | File | Runs in |
 | --- | --- | --- |
 | 1, the SURFACE | `scripts/surface.dart` → `api-surface.json` (committed) | `dart run scripts/surface.dart` writes it; staleness checked by every gate run |
-| 2, the FLOOR | `scripts/compat.dart` `floorOf` | `bump.dart` (refuses below it), `compat.dart` (report), `compat.dart --release` on the tag (CI, blocking) |
+| 2, the FLOOR | `scripts/compat.dart` `floorOf` | `bump.dart` (refuses below it), `compat.dart` (report), `compat.dart --release` on the release candidate (CI `checks`, blocking; untagged since D1, 2026-11-10 — [releasing.md](releasing.md)) |
 | 3, BEHAVIOUR | `compat.dart` `previousTests` | same places; required green for a patch or minor |
 | 4, deprecate first | README `### ⚠️ Breaking Changes` | gate requires a `\| _next release_ \|` row when the floor is major; `bump.dart` stamps the version into it |
 | 5, re-baseline alone | the stale-snapshot refusal | an intended surface change is its own commit, with the reason |

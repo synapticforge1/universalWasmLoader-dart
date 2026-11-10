@@ -4,8 +4,11 @@ The workspace floor is `../../cmem/working-rules.md`; these are what bite in thi
 
 ## Git and release
 
-- **Nothing is pushed, tagged or published unless the owner says so.** A `v*` tag publishes to
-  pub.dev irreversibly ([releasing.md](releasing.md)).
+- **Nothing is pushed, tagged or published unless the owner says so.** ⚠️ **The `pubspec.yaml`
+  version line ARMS a release:** a push of `main` whose version has no tag yet IS one. CI checks,
+  tags, makes the page and publishes to pub.dev, irreversibly (the owner's order D1, 2026-11-10;
+  [release.md](release.md)). So a version change lands only through `bump.dart` + `release.dart`,
+  never inside other work, and no tag is ever made by hand: CI makes it.
 - 🔒 **No third-party package code runs in a CI job that holds the pub.dev credentials** (owner,
   2026-11-07, workspace C30). Checks that execute dependencies (`analyze`, `dart test`, `dart run
   scripts/...`) belong in `checks`, which has no secret. `publish` runs only the SDK's `dart pub

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- No library changes.
+- Releases now run checks first, then CI creates the tag, then the GitHub Release page, then the
+  pub.dev upload, with a read-back. A release is started by pushing `main`. README's Releasing
+  section is updated.
+
 ## 0.3.2
 
 - No library changes.

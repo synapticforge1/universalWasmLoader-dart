@@ -1,154 +1,166 @@
-# Releasing — bump, gate, tag, CI publish
+# Releasing — the design behind bump, release and the CI order
 
-**Version source:** `pubspec.yaml` `version:` is the single source of truth. **Nothing is tagged or
-pushed unless the owner says so**; a pushed `v*` tag publishes to pub.dev, and a published version
-can never be deleted.
+**Version source:** `pubspec.yaml` `version:` is the single source of truth, and it ARMS a release:
+a push of `main` whose version has no tag yet IS a release (CI tags and publishes it). **Nothing is
+pushed, tagged or published unless the owner says so**; a published version can never be deleted.
+How a release runs, slot by slot, and every release: [release.md](release.md).
 
-## The flow
+## The flow (🔒 the owner's order D1, 2026-11-10, workspace H33)
 
-1. `dart run scripts/bump.dart [patch|minor|major]` (default `patch`). It runs the compatibility
-   gate first ([compat-gate.md](compat-gate.md)) and refuses a bump below the floor, or a
-   patch/minor with the previous tag's tests red. On success it rewrites the `version:` line only,
-   stamps README's `| _next release_ |` Breaking Changes row and CHANGELOG's `## Unreleased` heading
-   with the new version, and changes nothing if refused.
-2. `dart run scripts/release.dart` — commits the pending bump (`pubspec.yaml`, `README.md`,
-   `CHANGELOG.md`), tags `vX.Y.Z`, pushes `main` and the tag. Runs from any cwd. It NEVER runs
-   `dart pub publish` locally (mirrors `-js`'s `scripts/publish.ts`).
-3. The tag triggers `.github/workflows/publish.yml`.
+1. **Notes first (U2):** CHANGELOG `## Unreleased` (and, when the floor is major, a README Breaking
+   Changes `| _next release_ |` row), merged into `main`. pub.dev's validator warns when CHANGELOG
+   does not mention the version, and `release.dart`'s gate stops on that warning (rehearsed).
+2. `dart run scripts/bump.dart <patch|minor|major>`. The level is REQUIRED. It refuses a dirty tree
+   (untracked files count), then runs the compatibility gate ([compat-gate.md](compat-gate.md)):
+   floor, previous-tag tests, surface current. It rewrites the `version:` line, stamps the README
+   row and the CHANGELOG heading, and commits `bump to vX.Y.Z` with only those files.
+3. `dart run scripts/release.dart [--dry-run]`: the U4 guards, a cold gate, then ONE push of
+   `main`, read back. It never tags and never publishes.
+4. CI (`.github/workflows/publish.yml`, on that push): `checks` → `tag` → `release` → `publish`.
 
-Write the CHANGELOG `## Unreleased` entry (and a Breaking Changes row when the floor is major)
-BEFORE bumping. Pre-flight worth running: `dart analyze`, `dart format`, `dart test -p chrome`,
-`dart pub publish --dry-run` (its only acceptable warning is the uncommitted bump).
-
-## `publish.yml` — `run:`-only
+## `publish.yml` — `run:`-only, four jobs, in the owner's order
 
 Built under the pre-transfer policy, which permitted only `jrmarcum`-owned actions: ANY third-party
-`uses:` step (`actions/checkout`, `dart-lang/setup-dart`, the pub.dev OIDC reusable workflow) caused
-a `startup_failure`. So every step is a plain `run:`. Under `synapticforge1` this workflow has run
-green (0.2.0); third-party `uses:` steps have not been tried there and nothing needs them.
+`uses:` step caused a `startup_failure`. So every step is a plain `run:`; nothing needs `uses:`.
 
-**Three jobs; each holds only what it needs.** Two since 2026-11-07 (workspace C30; owner: "I agree
-with splitting into two jobs if it will maintain better privacy"); the `release` job split off
-2026-11-09 for H32's recipe (the GitHub Release page from its own job, `contents: write` only). The
-rules: no third-party package code runs in a job that sees the pub.dev credentials, and the job
-that sees them has no write token.
-- **`checks`** (`contents: read`, no secret): full `git clone --branch <tag>` WITHOUT a token (the
-  repo is public, so no token lands in `.git/config`; history and tags, because the gate needs the
-  previous tag), asserted to equal `github.sha` → Dart from the official apt repo → `pub get` →
-  `analyze` → **fixture check (blocking)** → best-effort `dart test -p chrome` (warns, does not
-  block) → **release-script tests (blocking, `dart test -p vm test/ci_release_test.dart`)** →
-  **gate self-test (blocking)** → **`compat.dart --release` (blocking)**.
-- **`publish`** (`needs: checks`; `contents: read`): a fresh runner, shallow tokenless clone
-  asserted to equal `github.sha` (so a moved tag cannot publish untested code) → Dart SDK → copy
-  `scripts/ci_release.dart` to `$RUNNER_TEMP` → write `PUB_DEV_CREDENTIALS` (`umask 077`, all
-  candidate paths) → **publish, unless pub.dev already has the version** (`ci_release.dart
-  pub-has`; else `dart pub publish --force`, which downloads the deps to validate; pub has no
-  install scripts, so none of their code runs) → remove the credentials (`if: always()`).
-- **`release`** (`needs: publish`; `contents: write` only; no secret, NO checkout): Dart SDK →
-  fetch `scripts/ci_release.dart` ALONE from `raw.githubusercontent.com/<repo>/<github.sha>/…`
-  (public, `curl --max-time 60 --retry 3`) → **GitHub Release through the REST API**
-  (`ci_release.dart github-release`, with `GITHUB_TOKEN`).
+**Each job holds only what it needs** (C30, owner 2026-11-07: "I agree with splitting into two jobs
+if it will maintain better privacy"; H32, 2026-11-09: the page from its own job; D1, 2026-11-10: the
+order). The rules: no third-party package code runs in a job that sees the pub.dev credentials, the
+job that sees them has no write token, and only `tag` / `release` can write.
 
-**`scripts/ci_release.dart` (2026-11-09; workspace H30, C34, H32).** It imports only `dart:`
-libraries and runs from `$RUNNER_TEMP`, OUTSIDE the package, so `dart run` resolves nothing and
-loads no dependency (the C30 rule). **Every network call has ONE time limit, connect to last byte**
-(30 s; `CI_HTTP_TIMEOUT_MS` overrides it for the tests; before 2026-11-09's H32 pass, only the
-response headers were limited). There are two commands:
-- **`pub-has <pubspec>`**: exit 0 if pub.dev answers 200 for the version (the upload is
-  skipped), 3 on 404 (publish it), and 1 otherwise. It also returns 1 when `GITHUB_REF_NAME` ≠
-  `v<version>`. **Why:** pub.dev never takes a version twice. Before this, a failure AFTER the
-  upload (in the Release step) made every re-run stop at "version exists" and skip the Release.
-  That was measured: the H19 tag re-runs, 2026-10-26.
-- **`github-release [--dry-run]`**: the tag must exist on GitHub and peel to `GITHUB_SHA`
-  (annotated tags are followed). `POST /releases` would otherwise CREATE a missing tag from the
-  default branch (loader-rs's hazard, workspace rule 9). An existing release is done (exit 0), so
-  a re-run is safe. The POST (`generate_release_notes`, with the pub.dev version link on top) must
-  answer 201; the release is then read back (`tag_name`, not a draft), and the tag is checked
-  AGAIN (H32's order; both since the H32 pass).
+- **Trigger:** `push` of `main`. Top-level `permissions: {}`. `concurrency` per ref, never
+  cancelled. **Dart SDK 3.13.7** from dart-archive's zip, pinned by version AND sha256
+  (`eb99aed2…e867229`, the published sum, re-hashed from the 238,850,892-byte download on
+  2026-11-10) in every job, instead of apt's moving `stable`.
+- **`checks`** (`contents: read`, no secret): a full tokenless clone checked out at `github.sha`
+  (history and tags for the gate) → Dart → **"is this a release?"** (`ci_release.dart state`, with
+  the read-only token) → `pub get` → `analyze` → fixture check → **browser tests, BLOCKING** (they
+  were best-effort before 2026-11-10) → release-script tests → gate self-test → for a release,
+  **`compat.dart --release`** (the untagged candidate) and `dart pub publish --dry-run`. For an
+  ordinary push, the compat report only warns.
+- **`tag`** (`needs: checks`, only for a release; `contents: write`; no checkout): Dart, then
+  `ci_release.dart` fetched ALONE from `raw.githubusercontent.com/<repo>/<github.sha>/…`, then `tag`.
+- **`release`** (`needs: [checks, tag]`; `contents: write`; no checkout): the script alone again,
+  then `github-release`: the page from the tag, BEFORE the publish.
+- **`publish`** (`needs: [checks, release]`; `contents: read`): a tokenless clone at `github.sha` →
+  Dart → copy the script to `$RUNNER_TEMP` → write `PUB_DEV_CREDENTIALS` (`umask 077`) → `pub-has`:
+  skip, or `dart pub publish --force` (downloads the deps to validate; pub has no install scripts,
+  so none of their code runs) → remove the credentials (`if: always()`) → **`pub-readback`,
+  fatal**.
 
-**Tests, committed (H32 pass, 2026-11-09): `test/ci_release_test.dart`** (`@TestOn('vm')`, 15
-cases, ~12 s). The script runs as a child process against an in-process mock of GitHub and
-pub.dev that logs every request:
-- `github-release`: lightweight and annotated create; missing tag and other-commit tag refused with
-  no POST; existing page → no POST; POST 422; draft read-back; tag moved after the POST; dry-run;
-  no token → no request at all; a stalled API → `timed out after 1500 ms`.
-- `pub-has`: 200 / 404 / 500, and a tag ≠ `v<version>` → 1 before any request.
+A tag made with the job's `GITHUB_TOKEN` starts no workflow run, so tag, page and publish follow
+`needs:` in the SAME run. That is why the trigger is `main`, not a tag.
 
-Inverted by five one-line mutants, each caught by its own case(s): no sha check, no existing-page
-stop, no post-POST check, no time limit, no tag/version check. ⚠️ **On Windows, a child process with
-an EMPTY environment cannot open sockets** (Winsock needs `SystemRoot`): every request failed
-"Connection failed". The test passes the parent environment minus the variables the script reads.
+**Before 2026-11-10:**
+
+- The trigger was a `v*` tag that `release.dart` pushed (with `git tag -f` and a forced tag push).
+- The page came after the upload.
+- The browser tests did not block.
+- Dart came from apt.
+
+Before 2026-11-07 it was ONE job that ran the checks and then wrote the credentials on the same
+runner.
+
+## `scripts/compat.dart --release` — the untagged candidate (2026-11-10)
+
+Under D1, `checks` runs BEFORE the tag exists:
+
+- **Normal case:** `v<version>` is absent, and the previous release is the newest tag below HEAD.
+- **Re-run:** CI has already tagged HEAD, so the previous release is the newest tag below HEAD^.
+- **A `v<version>` tag on ANOTHER commit:** refused with "a published tag never moves".
+
+Rehearsed in all three states. The third first CRASHED (`bumpKind 0.3.3 → 0.3.3`, exit 255), because
+`git describe` from HEAD found the misplaced tag itself as "previous". It now refuses cleanly before
+computing anything (exit 1).
+
+## `scripts/ci_release.dart` — the network steps (H30, C34, H32, H33)
+
+It imports only `dart:` libraries and runs from `$RUNNER_TEMP`, OUTSIDE the package, or is fetched
+alone. So `dart run` resolves nothing and loads no dependency (the C30 rule). **Every network call
+has ONE time limit, connect to last byte** (30 s; `CI_HTTP_TIMEOUT_MS` overrides it for the tests).
+The run's ref is `main`, so every command takes the tag from **`RELEASE_TAG`** (set by `checks`),
+not from `GITHUB_REF_NAME`. Commands:
+
+- **`state <pubspec>`**: `kind=new` (the tag is not on GitHub), `rerun` (on this commit) or `none`
+  (on another commit: an ordinary push), plus `release=`, `tag=`, `version=`, appended to
+  `$GITHUB_OUTPUT`.
+- **`tag [--dry-run]`**: absent → `POST git/tags` (annotated, message = the tag, object =
+  `GITHUB_SHA`) then `POST git/refs`. A 422 on the ref is decided by the read-back. On this commit
+  already = done; on another commit = refused. The read-back must peel to `GITHUB_SHA`.
+- **`github-release [--dry-run]`**:
+  1. The tag exists and peels to `GITHUB_SHA` (`POST /releases` would otherwise CREATE a missing
+     tag, loader-rs's hazard).
+  2. An existing page is done.
+  3. `POST` with `generate_release_notes` and the pub.dev link on top, read back (not a draft), and
+     the tag peeled again.
+- **`pub-has <pubspec>`**: 0 = pub.dev serves the version (skip), 3 = not yet, 1 = cannot tell or
+  `RELEASE_TAG` ≠ `v<version>`. **Why:** pub.dev never takes a version twice. Before this, a failure
+  after the upload made every re-run stop at "version exists" (measured: the H19 tag re-runs,
+  2026-10-26).
+- **`pub-readback <pubspec>`**: polls (`READBACK_TRIES` 20 × `READBACK_WAIT_MS` 15 s) until pub.dev
+  serves `version` = the pubspec's; otherwise exit 1. A green upload is not proof.
+
+**Tests, committed: `test/ci_release_test.dart`** (`@TestOn('vm')`, **30 cases**, ~25 s). Each case
+runs the script as a child process against an in-process mock of GitHub and pub.dev that logs every
+request. The cases:
+
+- `state`: new (GITHUB_OUTPUT written), rerun (annotated), none.
+- `tag`: create, done, elsewhere refused, 422, 500, read-back elsewhere, dry-run, and no
+  `RELEASE_TAG` / no token (no request at all).
+- `github-release`: the 11 H32 cases, a stalled API among them.
+- `pub-has`: 4 cases. `pub-readback`: at once, after two 404s, never, and another version.
+
+**Inverted 2026-11-10** by eight one-line mutants, each caught by its own case(s): tag without
+read-back, a moved tag accepted, rerun ≡ none, readback without the version check, no sha check, no
+existing-page stop, no post-POST check, no time limit. ⚠️ **On Windows, a child process with an EMPTY
+environment cannot open sockets** (Winsock needs `SystemRoot`), so the test passes the parent
+environment minus the variables the script reads.
 
 **Why Dart and not a Bun step** (workspace rule 9 suggests Bun; rule 1 allows the repo's own
-language): the publish job already has the Dart SDK. A Bun download would put a second runtime
-beside the credentials, with a sha256 pin that rule 10 / H31 would make this repo move at every
-Bun upgrade. **Measured 2026-11-09, outside the package:** against the real services with
-`--dry-run`, `v0.3.0` at its own commit → tag verified, release exists, exit 0; `v0.3.0` at
-another commit → refused, 1; `v9.9.9` → "does not exist", 1. `pub-has`: 0.3.0 → 0; tag `v0.2.1`
-with pubspec 0.3.0 → 1; 9.9.9 → 3. Against a mock GitHub (`GITHUB_API_URL`): create → one POST
-(`Bearer`, `generate_release_notes`), then a read-back; a re-run sends no POST; an annotated tag is
-peeled; a 422 POST → 1; `--dry-run` sends no POST; no token → refused before any request. The
-step's exit-code idiom was checked under `bash -e` (0 → skip, 3 → publish, 1 → fail). **MEASURED
-on GitHub with 0.3.1** (run 42633779743, attempt 1): `pub-has` said "publish", the upload
-succeeded, and `github-release` created Release `v0.3.1` (by `github-actions[bot]`, not a draft,
-notes `v0.3.0...v0.3.1`). The tag stayed `08e24c4`. **Not exercised:** the skip path on a real
-re-run, because nothing failed. **The three-job layout, the post-POST check and the pub.dev link
-(H32 pass) were MEASURED by 0.3.2** (run 42656931575; history below). The body time limit is proven
-only by the mock: no real call stalled.
+language): every job already has the Dart SDK. A Bun download would put a second runtime beside the
+credentials, with a pin that rule 10 / H31 would make this repo move at every Bun upgrade.
 
-Before 2026-11-07 it was ONE job that ran all the checks and then wrote the credentials on the same
-runner, so a process left behind by a dependency could have read them (reasoned, never observed).
+## Rehearsed 2026-11-10 (D1), GitHub untouched
 
-**Why a credentials file, not OIDC:** pub.dev's automated publishing is a third-party reusable
-workflow, which the policy forbade. **Owner setup (one-time, done):** `dart pub login` locally,
-then copy the full `pub-credentials.json` into the repo secret `PUB_DEV_CREDENTIALS`; rotate by
-logging in again. The secret contains a refresh token and survived the org transfer.
+The setup: a scratch bare repo as `origin` and a scratch clone of this repo. Then:
+
+- **`bump.dart`:** no level, a junk level and an untracked file were each refused, with nothing
+  changed. A real patch made ONE commit, `bump to v0.3.3`.
+- **`release.dart`** refused each of these with nothing pushed:
+  - another branch;
+  - an untracked file;
+  - a commit on top of the bump;
+  - the tag local;
+  - the tag on the remote.
+- **The cold gate:** the dry run stopped at `pub publish --dry-run` because CHANGELOG had no 0.3.3
+  notes (U2 enforced). With the notes merged first, the real run pushed `main` = the bump commit,
+  read it back, and **no tag existed anywhere** afterwards.
+- **Against the real GitHub, read-only:**
+  - `state`: `v0.3.2` at its commit → `rerun`; at a later commit → `none`; 9.9.9 → `new`.
+  - `tag --dry-run`: at its commit → done; elsewhere → refused; v9.9.9 → would create.
+
+**UNMEASURED on GitHub until the first release in this order:**
+
+- the CI-made tag;
+- `needs:` chaining from a push of `main`;
+- pub.dev accepting the credentials from that run (expected: the secret has no ref check);
+- the read-back.
+
+## Owner setup (one-time, done) and the credential
+
+`dart pub login` locally, then copy the full `pub-credentials.json` into the repo secret
+`PUB_DEV_CREDENTIALS`; rotate by logging in again. The secret holds a refresh token and survived the
+org transfer. The move to pub.dev's OIDC automated publishing is an owner decision; the reasoning
+is in [release.md](release.md) § "Not filled yet".
 
 ## Scripting runtime 🔒 (owner, 2026-10-22)
 
 Scripts here are **Dart only** (`dart run scripts/...`); releasing needs only the Dart SDK. Bun is
 the workspace's TypeScript runner; a TypeScript script, if ever unavoidable, runs under `bun`.
 **No Bun version is pinned or named anywhere in this repo** (measured 2026-11-09: `git grep -i bun`
-outside `cmem/` → 0), so workspace rule 10 / H31 has nothing to move here; if Bun is ever added,
-its notations follow the latest installed Bun. The
-bash twins `bump.sh` / `release.sh` were deleted in `3883d61` (no shell scripts, workspace rule).
+outside `cmem/` → 0), so workspace rule 10 / H31 has nothing to move here. The bash twins
+`bump.sh` / `release.sh` were deleted in `3883d61` (no shell scripts, workspace rule).
 
-## Release history (summaries; git is the archive)
+## Release history
 
-- **0.3.2 (2026-11-09), tag → `e22927c`.** No library change: the README's three-job text and the
-  H32 release tooling.
-  - `bump.dart patch`: floor patch, v0.3.1's 37 tests green on the current code.
-  - Run 42656931575: `checks` 16:39:12–16:41:03Z, release-script tests green on Linux; `publish`
-    16:41:06–16:41:32Z, with pub.dev's upload at 16:41:29Z; `release` 16:41:34–16:42:00Z, the
-    script fetched alone.
-  - Page `v0.3.2` by `github-actions[bot]`, `published_at` 16:41:58Z, pub.dev link on top, not a
-    draft, `releases/latest`. The tag is unmoved.
-
-- **0.3.1 (2026-11-09, owner: "release"), tag → `08e24c4`.** No library change. It carries the
-  README's Releasing text, and it was the first real run of `ci_release.dart` (H30 / C34).
-  `bump.dart patch`: floor patch, v0.3.0's 37 tests green on the current code. Run 42633779743 was
-  green in both jobs. pub.dev read back: latest 0.3.1, published 14:22:27Z. GitHub Release `v0.3.1`
-  was read back through the REST API.
-
-- **0.3.0 (2026-11-07), tag → `1fe255f`.** SPEC 4.0.0 (`5e24ae3`), a breaking pre-1.0 minor
-  ([compat-gate.md](compat-gate.md) Rule 6, README row 0.3.0). The first run of the two-job
-  workflow: run 42436175882, `checks` green (gate blocking steps included), then `publish` green
-  (credentials written, published, removed, GitHub release created). The browser-test step is
-  best-effort and its log was not read (the logs need a signed-in download), so whether Chrome ran
-  on the runner is unconfirmed; locally 37/37. pub.dev read back: latest 0.3.0.
-
-- **0.2.1 (2026-10-22), tag → `ae231db`.** No library change: the README §10 correction, the stamped
-  H7 fixtures, the Breaking Changes table. It is the first release through the compatibility gate:
-  locally, `bump.dart patch` was allowed at floor patch with the previous-tag tests 9/9. In CI, run
-  39803257031 passed every step, including the three blocking ones (fixtures, gate self-test,
-  `compat --release`). For a patch, that last step can only pass if the previous tag's suite ran
-  green in Chrome on the runner. Published at 15:17Z, and pub.dev's README now shows the corrected
-  §10 text.
-
-- **0.2.0 (2026-10-22), tag → `5f1c294`.** SPEC §10 (`6579312`); no API change. The first real run of
-  `release.dart`, and the first release after the org transfer. CI run 39797726044 was green on every
-  step, the browser tests really ran on the runner, and it published at 14:41Z.
-- **0.1.0 (2026-06-24), tag → `4376a8a`.** First publish, through CI (then `release.sh`); the archive
-  is 12 KB after `.pubignore`. `jrmarcum` is the pub.dev uploader; there is no verified publisher.
-- ⚠️ The `ubuntu-latest` label moves to Ubuntu 26 from 2026-10-19. If a future run breaks, check the
-  apt Dart install first.
+Moved to [release.md](release.md) § "Release History" (2026-11-10, workspace U11).

@@ -3,17 +3,25 @@
 **State (2026-11-09):** **0.3.2 is the latest on pub.dev: SPEC 4.0.0** + §10 (workspace C29),
 tag `v0.3.2` → `e22927c`. Its library is 0.3.0's (released 2026-11-07, `1fe255f`). 0.3.1 and 0.3.2
 carry the README and the release tooling: no GitHub CLI, and since 0.3.2 the Release page comes
-from its own `release` job (H32). Every release passes the
-blocking compatibility gate in CI, and since 0.3.0 the credentials live only in a job that runs no
-package code (C30, [releasing.md](releasing.md)). The
-history was purged of a drive path and force-pushed on 2026-10-26 (H19,
-[history-map-2026-10-26.md](history-map-2026-10-26.md)).
+from its own `release` job (H32). **Since 2026-11-10 (H33, local `main`), releases run in the
+owner's order:** `release.dart` pushes `main` only, and CI checks → tags → makes the page → publishes
+([release.md](release.md)). ⚠️ A push of `main` with an untagged `pubspec.yaml` version IS a release.
+Every release passes the blocking compatibility gate in CI, and the credentials live only in a job
+that runs no package code (C30). The history was purged of a drive path and force-pushed on
+2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10-26.md)).
 
 ## Open
 
-
-
-
+- **The first release in the owner's order measures it on GitHub** (H33, 2026-11-10): the
+  CI-made tag, `needs:` chaining from a push of `main`, pub.dev taking the credentials from that
+  run, the fatal read-back, and the browser tests now blocking. Rehearsed locally (scratch remote)
+  and read-only against GitHub ([releasing.md](releasing.md)), not yet run. Close it with the run id
+  and the tag's `tagger` (`github-actions[bot]`) in [release.md](release.md), and write that into
+  ledger row H33.
+- **🗓️ OWNER: pub.dev OIDC automated publishing (U8's target), or keep the credentials secret?**
+  Reasoned in [release.md](release.md) § "Not filled yet": it needs the owner's pub.dev admin
+  setting (with workflow_dispatch events allowed) and the publish moved into a run dispatched on
+  the tag. Until decided, the secret stays.
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
   requests, so no other ref holds them. Send from the account that administers the org, at
@@ -51,6 +59,23 @@ history was purged of a drive path and force-pushed on 2026-10-26 (H19,
 - **Native backend** (`dart:ffi` → wasmtime C API): tracked future ([overview.md](overview.md)).
 
 ## Done (summaries with pointers)
+
+- **H33 / H34, 2026-11-10** (owner: "review workspace for items needing this project's attention
+  and make the requested fixes"). **H34:** the workspace's "Owner commands" section committed as
+  found (`0c9b1f9`). **H33:** converged to `release-process.md` § 5 in the owner's order D1
+  (`fe28a40` + the follow-up commits) — details per slot in [release.md](release.md), design and
+  evidence in [releasing.md](releasing.md):
+  - `bump.dart`: the level required, clean tree, makes the bump commit;
+  - `release.dart` rewritten: guards, a cold gate, pushes `main` only, never tags;
+  - `compat --release` on the untagged candidate; its tag-elsewhere crash fixed;
+  - `ci_release.dart`: `state`, `tag`, `pub-readback`; tests 15 → 30, eight mutants;
+  - `publish.yml`: on `main`, `checks` → `tag` → `release` → `publish`; Dart pinned by sha256;
+    browser tests blocking; `permissions: {}`; `concurrency`;
+  - `cmem/release.md` created (U11), the history moved there.
+
+  The card's "U5 browser tests non-blocking", "U9 Dart from apt", "U8 no read-back", "U4 `tag -f`,
+  two pushes, no clean-tree guard" and "U3 no clean-tree check" are closed. U8's OIDC is an owner
+  item (above).
 
 - **0.3.2 released (2026-11-09, owner: "update the projects memory files, commit, push then
   release"), tag → `e22927c`;** no library change. The first run of the three-job workflow (H32),

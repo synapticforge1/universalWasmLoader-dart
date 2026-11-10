@@ -40,7 +40,8 @@ ones, and keep every gate in [testing.md](testing.md) green (`dart test -p chrom
 | --- | --- |
 | [open-work.md](open-work.md) | THE status line and the one list of open items; done items as summaries with commit pointers |
 | [overview.md](overview.md) | What the port is, repo home (`synapticforge1`), the 🔒 dual-backend runtime decision, API surface, SPEC 4.0.0 conformance and the Dart error types, file layout, the js_interop gotchas |
-| [releasing.md](releasing.md) | Bump → gate → tag → CI publish; the `run:`-only, three-job (`checks` / `publish` / `release`) workflow and why; `ci_release.dart` (pub.dev skip, REST Release, no CLI); Dart-only scripting 🔒; release history |
+| [release.md](release.md) | 🔒 How a release runs (the owner's order: checks → CI tag → page → pub.dev, slots U1–U12, what is not filled and why) and § "Release History", newest first, a summary per version |
+| [releasing.md](releasing.md) | The design: bump → release (pushes `main` only) → the `run:`-only four-job workflow and why; `compat --release` on the untagged candidate; `ci_release.dart`'s five commands and tests; the D1 rehearsal; Dart-only scripting 🔒 |
 | [testing.md](testing.md) | Every gate, its command and blind spots, dated counts; the http test server; the stamped reference fixtures (H7) and how to refresh them |
 | [compat-gate.md](compat-gate.md) | The H6 compatibility gate: surface, floor, previous-tag tests, pre-1.0 rule, the inversion table, traps |
 | [working-rules.md](working-rules.md) | The checklist: git/release (no package code beside the credentials 🔒, no GitHub CLI 🔒, Release pages from CI 🔒, Bun notations), tooling hard rules, LF 🔒, privacy and the path test 🔒, memory rules |

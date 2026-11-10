@@ -3,8 +3,8 @@
 | Gate | Command | Sees | Blind to |
 | --- | --- | --- | --- |
 | Static | `dart analyze`; `dart format --output=none --set-exit-if-changed .` | types, lints, formatting | behaviour |
-| Browser suite | `dart test -p chrome` (`@TestOn('browser')`; needs Chrome) | the SPEC §8 fixtures and its 4.0.0 Refusals table, lifecycle, both §10 tests, the http cases (local server), s64 | WIT/ABI shapes not in the fixtures or the test server; a callback whose arity is wrong |
-| Release script | `dart test -p vm test/ci_release_test.dart` (15 cases; blocking in CI `checks`) | `scripts/ci_release.dart` against a mock GitHub / pub.dev: H30 / C34 / H32 order, refusals, time limit | the real GitHub and pub.dev (a tag run, or `--dry-run` by hand) |
+| Browser suite | `dart test -p chrome` (`@TestOn('browser')`; needs Chrome; BLOCKING in CI `checks` since 2026-11-10, best-effort before) | the SPEC §8 fixtures and its 4.0.0 Refusals table, lifecycle, both §10 tests, the http cases (local server), s64 | WIT/ABI shapes not in the fixtures or the test server; a callback whose arity is wrong |
+| Release script | `dart test -p vm test/ci_release_test.dart` (30 cases since 2026-11-10; blocking in CI `checks`) | `scripts/ci_release.dart` against a mock GitHub / pub.dev: `state`, `tag`, `github-release`, `pub-has`, `pub-readback`; refusals, time limit | the real GitHub and pub.dev (a release run, or `--dry-run` by hand) |
 | Fixtures | `dart run scripts/check_fixtures.dart` | `test/fixtures/` bytes vs the `-js` stamp | whether the stamp itself is current with `-js` |
 | Compat gate | `dart run scripts/compat.dart` (+ `check_compat_gate.dart`) | API surface, SPEC version, previous tag's tests | behaviour the previous tests never exercised |
 

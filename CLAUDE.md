@@ -20,9 +20,11 @@ The **"update the project memory"** and **"look for code issues"** triggers are 
 
 ## What bites in the first five minutes
 
-- **Nothing is pushed, tagged or published unless the owner says so.** A `v*` tag publishes to
-  pub.dev irreversibly. Bump with `dart run scripts/bump.dart`: it runs the compatibility gate and
-  refuses a bump below the floor (`cmem/compat-gate.md`).
+- **Nothing is pushed, tagged or published unless the owner says so.** ⚠️ **A push of `main` whose
+  `pubspec.yaml` version has no tag yet IS a release** (since 2026-11-10): CI checks it, tags it,
+  makes the page and publishes to pub.dev, irreversibly. Release with `dart run scripts/bump.dart
+  <level>` (the gate; refuses below the floor) then `dart run scripts/release.dart` (pushes `main`
+  only; CI does the rest). How: `cmem/release.md`.
 - **Tests are browser-only:** `dart test -p chrome` (plain `dart test` runs nothing useful).
 - **Scripts are Dart; no shell scripts, no Python, no heredocs; `git commit -F <file>`.** LF
   everywhere (`.gitattributes`).
