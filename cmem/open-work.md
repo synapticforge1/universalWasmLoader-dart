@@ -5,7 +5,9 @@ tag `v0.3.2` → `e22927c`. Its library is 0.3.0's (released 2026-11-07, `1fe255
 carry the README and the release tooling: no GitHub CLI, and since 0.3.2 the Release page comes
 from its own `release` job (H32). **Since 2026-11-10 (H33, local `main`), releases run in the
 owner's order:** `release.dart` pushes `main` only, and CI checks → tags → makes the page → publishes
-([release.md](release.md)). ⚠️ A push of `main` with an untagged `pubspec.yaml` version IS a release.
+([release.md](release.md)). Pushed 2026-11-10 (`e4b85a0`); its run 42877135280 measured the
+non-release path (`checks` green, the rest skipped). ⚠️ A push of `main` with an untagged
+`pubspec.yaml` version IS a release.
 Every release passes the blocking compatibility gate in CI, and the credentials live only in a job
 that runs no package code (C30). The history was purged of a drive path and force-pushed on
 2026-10-26 (H19, [history-map-2026-10-26.md](history-map-2026-10-26.md)).
@@ -19,9 +21,22 @@ that runs no package code (C30). The history was purged of a drive path and forc
   and the tag's `tagger` (`github-actions[bot]`) in [release.md](release.md), and write that into
   ledger row H33.
 - **🗓️ OWNER: pub.dev OIDC automated publishing (U8's target), or keep the credentials secret?**
-  Reasoned in [release.md](release.md) § "Not filled yet": it needs the owner's pub.dev admin
-  setting (with workflow_dispatch events allowed) and the publish moved into a run dispatched on
-  the tag. Until decided, the secret stays.
+  Explained to the owner on 2026-11-10:
+  - **The secret:** `PUB_DEV_CREDENTIALS` is the owner's personal `dart pub login` refresh token.
+    It can publish every package the account can upload, it is long-lived, and only rotation by
+    hand fixes a leak. Its exposure is limited (C30), but that is what it can do.
+  - **OIDC:** no stored secret. A token minted per run, valid for minutes, for this package only;
+    pub.dev shows the version as published by GitHub Actions.
+  - **The catch:** pub.dev takes it only from a run started by a matching tag push (or a
+    workflow_dispatch, opt-in), and D1's run starts from `main`.
+  - **The path:**
+    1. the owner enables automated publishing on the package admin page (repo, `v{{version}}`,
+       workflow_dispatch allowed);
+    2. CI dispatches a publish run on the new tag after the page;
+    3. one release proves it, then the secret is deleted and the login revoked.
+
+  Waiting for the owner's step 1. Recommended, not urgent. Details in
+  [release.md](release.md) § "Not filled yet".
 - **🗓️ OWNER: send the GitHub Support cleanup request (H19's last step).** GitHub still serves the
   19 pre-purge commits by hash until its own GC. Measured 2026-10-26: public repo, 0 forks, 0 pull
   requests, so no other ref holds them. Send from the account that administers the org, at

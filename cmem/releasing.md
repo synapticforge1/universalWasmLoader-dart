@@ -139,6 +139,13 @@ The setup: a scratch bare repo as `origin` and a scratch clone of this repo. The
   - `state`: `v0.3.2` at its commit → `rerun`; at a later commit → `none`; 9.9.9 → `new`.
   - `tag --dry-run`: at its commit → done; elsewhere → refused; v9.9.9 → would create.
 
+**MEASURED on GitHub, the non-release path (2026-11-10, owner: "push"):** the push of `e4b85a0` ran
+**42877135280**:
+
+- `checks` green, so the pinned Dart SDK installed, the BLOCKING browser tests passed on the runner,
+  and `state` answered "not a release";
+- `tag` / `release` / `publish` skipped, because 0.3.2 is already tagged on `e22927c`.
+
 **UNMEASURED on GitHub until the first release in this order:**
 
 - the CI-made tag;
